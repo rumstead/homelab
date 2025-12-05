@@ -1,0 +1,74 @@
+# IDE
+/.idea/
+*.iml
+.vscode/
+*.swp
+*.swo
+*~
+
+# Terraform
+*.tfstate
+*.tfstate.*
+*.tfstate.backup
+.terraform/
+.terraform.lock.hcl
+crash.log
+crash.*.log
+override.tf
+override.tf.json
+*_override.tf
+*_override.tf.json
+*.tfvars
+!*.tfvars.example
+
+# Ansible
+*.retry
+inventory/*.ini
+!inventory/*.example.ini
+
+# Kubernetes / Helm
+*.kubeconfig
+kubeconfig
+*.dec
+charts/*.tgz
+helmfile.lock
+
+# Secrets & Credentials
+*.pem
+*.key
+*.crt
+*.p12
+*.pfx
+.env
+.env.*
+!.env.example
+secrets/
+*secret*
+!*secret*.example
+*.sops.yaml
+.decrypted/
+
+# SOPS / Age
+*.agekey
+age.key
+
+# Pulumi
+.pulumi/
+Pulumi.*.yaml
+!Pulumi.yaml
+
+# Vagrant
+.vagrant/
+
+# Cloud CLIs
+.aws/
+.azure/
+.gcloud/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+logs/
