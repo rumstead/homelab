@@ -4,7 +4,13 @@
 
 set -e
 
-ISO_PATH="/home/rumstead/Downloads/metal-amd64.iso"
+# Use kernel/initrd for network boot instead of ISO
+TALOS_VERSION="v1.10.8"
+KERNEL_URL="https://github.com/siderolabs/talos/releases/download/${TALOS_VERSION}/vmlinuz-amd64"
+INITRD_URL="https://github.com/siderolabs/talos/releases/download/${TALOS_VERSION}/initramfs-amd64.xz"
+KERNEL_PATH="/tmp/talos-vmlinuz"
+INITRD_PATH="/tmp/talos-initramfs.xz"
+
 LIBVIRT_POOL_PATH="/var/lib/libvirt/images"
 LIBVIRT_NETWORK="default"
 
@@ -26,30 +32,23 @@ if [ "$EUID" -ne 0 ]; then
     exit 1
 fi
 
-# Check if ISO exists
-if [ ! -f "$ISO_PATH" ]; then
-    echo "ERROR: Talos ISO not found at $ISO_PATH"
-    echo "Download it from: https://www.talos.dev/latest/talos-guides/install/bare-metal-platforms/"
-    exit 1
-fi
-
 # Check if libvirt is running
 if ! systemctl is-active --quiet libvirtd; then
     echo "Starting libvirtd..."
     systemctl start libvirtd
 fi
 
-# Copy ISO to libvirt pool for accessibility
-echo "Checking ISO accessibility..."
-ISO_POOL_PATH="$LIBVIRT_POOL_PATH/metal-amd64.iso"
-if [ ! -f "$ISO_POOL_PATH" ]; then
-    echo "Copying ISO to libvirt pool..."
-    cp "$ISO_PATH" "$ISO_POOL_PATH"
-    chmod 644 "$ISO_POOL_PATH"
-else
-    echo "ISO already in libvirt pool"
+# Download Talos kernel and initrd if not present
+echo "Checking Talos boot files..."
+if [ ! -f "$KERNEL_PATH" ]; then
+    echo "Downloading Talos kernel..."
+    curl -L -o "$KERNEL_PATH" "$KERNEL_URL"
 fi
-ISO_PATH="$ISO_POOL_PATH"
+
+if [ ! -f "$INITRD_PATH" ]; then
+    echo "Downloading Talos initramfs..."
+    curl -L -o "$INITRD_PATH" "$INITRD_URL"
+fi
 
 # Clean up existing VMs if they exist
 echo "Checking for existing VMs..."
@@ -71,13 +70,12 @@ virt-install \
     --vcpus 2 \
     --memory 2048 \
     --disk path="$LIBVIRT_POOL_PATH/$CONTROLPLANE_NAME.qcow2,size=5,format=qcow2,bus=virtio" \
-    --cdrom "$ISO_PATH" \
     --network network="$LIBVIRT_NETWORK,mac=52:54:00:12:34:56" \
+    --boot kernel="$KERNEL_PATH",initrd="$INITRD_PATH",kernel_args='talos.platform=metal console=ttyS0' \
     --osinfo detect=on,name=linux2024 \
     --graphics vnc \
     --console pty,target_type=serial \
-    --boot hd,menu=off \
-    --accelerate \
+    --import \
     --noautoconsole
 
 echo "✓ Control Plane VM created!"
@@ -96,14 +94,13 @@ virt-install \
     --vcpus 6 \
     --memory 10240 \
     --disk path="$LIBVIRT_POOL_PATH/$WORKER_NAME.qcow2,size=25,format=qcow2,bus=virtio" \
-    --cdrom "$ISO_PATH" \
     --network network="$LIBVIRT_NETWORK,mac=52:54:00:12:34:57" \
+    --boot kernel="$KERNEL_PATH",initrd="$INITRD_PATH",kernel_args='talos.platform=metal console=ttyS0' \
     --osinfo detect=on,name=linux2024 \
     --graphics vnc \
     --console pty,target_type=serial \
-    --boot hd,menu=off \
-    --accelerate \
     --hostdev "$GPU_PCI" \
+    --import \
     --noautoconsole
 
 echo "✓ Worker VM created!"
@@ -141,4 +138,5 @@ echo "  - $LIBVIRT_POOL_PATH/../controlplane.xml"
 echo "  - $LIBVIRT_POOL_PATH/../worker.xml"
 echo ""
 echo "You can now backup these or use them to recreate VMs later"
+
 
