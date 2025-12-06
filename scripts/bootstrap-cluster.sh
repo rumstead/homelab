@@ -11,6 +11,7 @@ TALOS_DIR="$PROJECT_DIR/talos"
 CLUSTER_NAME="acemagic-talos"
 CONTROLPLANE_IP="192.168.1.10"
 WORKER_IP="192.168.1.11"
+TALOSCONFIG_PATH="${TALOSCONFIG:-$HOME/.talos/config}"
 
 echo "================================================"
 echo "Talos Cluster Bootstrap"
@@ -31,22 +32,22 @@ if ! command -v kubectl &> /dev/null; then
 fi
 
 # Check if talosconfig exists
-if [ ! -f "$PROJECT_DIR/.talosconfig" ]; then
-    echo "ERROR: $PROJECT_DIR/.talosconfig not found"
-    echo "Run: ./scripts/generate-talos-config.sh"
+if [ ! -f "$TALOSCONFIG_PATH" ]; then
+    echo "ERROR: talosconfig not found at $TALOSCONFIG_PATH"
+    echo "Run: ./scripts/gen-talos.sh"
     exit 1
 fi
 
 # Check if machine configs exist
 if [ ! -f "$TALOS_DIR/controlplane.yaml" ] || [ ! -f "$TALOS_DIR/worker.yaml" ]; then
     echo "ERROR: Machine configs not found in $TALOS_DIR"
-    echo "Run: ./scripts/generate-talos-config.sh"
+    echo "Run: ./scripts/gen-talos.sh"
     exit 1
 fi
 
 # Apply machine configurations
 echo "Applying machine configuration to control plane..."
-export TALOSCONFIG="$PROJECT_DIR/.talosconfig"
+export TALOSCONFIG="$TALOSCONFIG_PATH"
 talosctl apply-config --insecure --nodes "$CONTROLPLANE_IP" --file "$TALOS_DIR/controlplane.yaml" || true
 
 echo "Applying machine configuration to worker..."
@@ -78,19 +79,19 @@ if [ $RETRIES -eq $MAX_RETRIES ]; then
     echo "ERROR: Control plane failed to become ready"
     echo ""
     echo "Debugging:"
-    echo "  Check VM console: virsh console acemagic-talos-controlplane"
-    echo "  Check VM IP: virsh domifaddr acemagic-talos-controlplane"
+    echo "  Check VM console: virsh console talos-controlplane"
+    echo "  Check VM IP: virsh domifaddr talos-controlplane"
     exit 1
 fi
 
 # Configure talosctl
 echo "Configuring talosctl context..."
-export TALOSCONFIG="$PROJECT_DIR/.talosconfig"
+export TALOSCONFIG="$TALOSCONFIG_PATH"
 
 # Check if talosconfig exists
 if [ ! -f "$TALOSCONFIG" ]; then
     echo "ERROR: $TALOSCONFIG not found"
-    echo "Run: ./scripts/generate-talos-config.sh"
+    echo "Run: ./scripts/gen-talos.sh"
     exit 1
 fi
 

@@ -47,11 +47,11 @@ talosctl gen config "$CLUSTER_NAME" "https://$CONTROL_PLANE_IP:6443" \
 echo "Extracting configurations..."
 mkdir -p "$TALOS_DIR"
 
-# Copy the main cluster config
-cp "$TEMP_DIR/talosconfig" "$PROJECT_DIR/.talosconfig" 2>/dev/null || true
+# Copy the main cluster config to the default talosctl location
+mkdir -p "$HOME/.talos"
+cp "$TEMP_DIR/talosconfig" "$HOME/.talos/config" 2>/dev/null || true
 
 # Update talosconfig with endpoint
-export TALOSCONFIG="$HOME/.talos/.config"
 talosctl config endpoint "$CONTROL_PLANE_IP"
 talosctl config node "$CONTROL_PLANE_IP"
 
