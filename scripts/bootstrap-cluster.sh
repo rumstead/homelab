@@ -1,4 +1,3 @@
-
 #!/bin/bash
 # Bootstrap Talos cluster
 # This script configures the Talos nodes and initializes Kubernetes
