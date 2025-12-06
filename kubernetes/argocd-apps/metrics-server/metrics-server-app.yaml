@@ -6,9 +6,10 @@ metadata:
 spec:
   project: default
   source:
-    repoURL: https://github.com/kubernetes-sigs/metrics-server.git
-    targetRevision: HEAD
-    path: manifests/base
+    repoURL: https://github.com/rumstead/homelab.git
+    targetRevision: main
+    path: kubernetes/argocd-apps/metrics-server
+    kustomize: {}
   destination:
     server: https://kubernetes.default.svc
     namespace: kube-system

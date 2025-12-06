@@ -72,3 +72,5 @@ Thumbs.db
 # Logs
 *.log
 logs/
+talos/controlplane.yaml
+talos/worker.yaml

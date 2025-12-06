@@ -51,24 +51,24 @@ mkdir -p "$TALOS_DIR"
 cp "$TEMP_DIR/talosconfig" "$PROJECT_DIR/.talosconfig" 2>/dev/null || true
 
 # Update talosconfig with endpoint
-export TALOSCONFIG="$PROJECT_DIR/.talosconfig"
+export TALOSCONFIG="$HOME/.talos/.config"
 talosctl config endpoint "$CONTROL_PLANE_IP"
 talosctl config node "$CONTROL_PLANE_IP"
 
 # Extract control plane config
 cp "$TEMP_DIR/controlplane.yaml" "$TALOS_DIR/controlplane.yaml"
 
-# Patch controlplane config with static IP and correct disk
+# Patch controlplane config with static IP, correct disk, and cert SANs
 talosctl machineconfig patch "$TALOS_DIR/controlplane.yaml" \
-  --patch '[{"op": "replace", "path": "/machine/network", "value": {"hostname": "talos-controlplane", "interfaces": [{"interface": "eth0", "dhcp": true}]}}, {"op": "replace", "path": "/machine/install/disk", "value": "/dev/vda"}]' \
+  --patch '[{"op": "replace", "path": "/machine/network", "value": {"hostname": "talos-controlplane", "interfaces": [{"interface": "eth0", "dhcp": true}]}}, {"op": "replace", "path": "/machine/install/disk", "value": "/dev/vda"}, {"op": "add", "path": "/machine/certSANs", "value": ["'$CONTROL_PLANE_IP'"]}]' \
   --output "$TALOS_DIR/controlplane.yaml"
 
 # Extract worker config
 cp "$TEMP_DIR/worker.yaml" "$TALOS_DIR/worker.yaml"
 
-# Patch worker config with static IP and correct disk
+# Patch worker config with static IP, correct disk, and cert SANs
 talosctl machineconfig patch "$TALOS_DIR/worker.yaml" \
-  --patch '[{"op": "replace", "path": "/machine/network", "value": {"hostname": "talos-worker", "interfaces": [{"interface": "eth0", "dhcp": true}]}}, {"op": "replace", "path": "/machine/install/disk", "value": "/dev/vda"}]' \
+  --patch '[{"op": "replace", "path": "/machine/network", "value": {"hostname": "talos-worker", "interfaces": [{"interface": "eth0", "dhcp": true}]}}, {"op": "replace", "path": "/machine/install/disk", "value": "/dev/vda"}, {"op": "add", "path": "/machine/certSANs", "value": ["'$WORKER_IP'"]}]' \
   --output "$TALOS_DIR/worker.yaml"
 
 # Generate cluster.yaml for reference
@@ -82,12 +82,10 @@ spec:
   controlPlane:
     endpoint: https://$CONTROL_PLANE_IP:6443
   kubernetesVersion: "$KUBERNETES_VERSION"
-  allowSchedulingOnControlPlanes: false
+  allowSchedulingOnControlPlanes: true
   talosVersion: "$TALOS_VERSION"
   network:
     dnsDomain: cluster.local
-    cni:
-      name: cilium
 EOF
 
 echo ""
