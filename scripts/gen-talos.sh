@@ -60,7 +60,7 @@ cp "$TEMP_DIR/controlplane.yaml" "$TALOS_DIR/controlplane.yaml"
 
 # Patch controlplane config with static IP, correct disk, and cert SANs
 talosctl machineconfig patch "$TALOS_DIR/controlplane.yaml" \
-  --patch '[{"op": "replace", "path": "/machine/network", "value": {"hostname": "talos-controlplane", "interfaces": [{"interface": "eth0", "dhcp": true}]}}, {"op": "replace", "path": "/machine/install/disk", "value": "/dev/vda"}, {"op": "add", "path": "/machine/certSANs", "value": ["'$CONTROL_PLANE_IP'"]}]' \
+  --patch '[{"op": "replace", "path": "/machine/network", "value": {"hostname": "talos-controlplane", "interfaces": [{"interface": "eth0", "dhcp": true}]}}, {"op": "replace", "path": "/machine/install/disk", "value": "/dev/vda"}, {"op": "replace", "path": "/machine/certSANs", "value": ["'$CONTROL_PLANE_IP'", "talos-controlplane"]}]' \
   --output "$TALOS_DIR/controlplane.yaml"
 
 # Extract worker config
@@ -68,7 +68,7 @@ cp "$TEMP_DIR/worker.yaml" "$TALOS_DIR/worker.yaml"
 
 # Patch worker config with static IP, correct disk, and cert SANs
 talosctl machineconfig patch "$TALOS_DIR/worker.yaml" \
-  --patch '[{"op": "replace", "path": "/machine/network", "value": {"hostname": "talos-worker", "interfaces": [{"interface": "eth0", "dhcp": true}]}}, {"op": "replace", "path": "/machine/install/disk", "value": "/dev/vda"}, {"op": "add", "path": "/machine/certSANs", "value": ["'$WORKER_IP'"]}]' \
+  --patch '[{"op": "replace", "path": "/machine/network", "value": {"hostname": "talos-worker", "interfaces": [{"interface": "eth0", "dhcp": true}]}}, {"op": "replace", "path": "/machine/install/disk", "value": "/dev/vda"}, {"op": "replace", "path": "/machine/certSANs", "value": ["'$WORKER_IP'", "talos-worker"]}]' \
   --output "$TALOS_DIR/worker.yaml"
 
 # Generate cluster.yaml for reference
