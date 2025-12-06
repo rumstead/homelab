@@ -9,8 +9,8 @@ PROJECT_DIR="$(dirname "$SCRIPT_DIR")"
 TALOS_DIR="$PROJECT_DIR/talos"
 
 CLUSTER_NAME="acemagic-talos"
-CONTROL_PLANE_IP="192.168.122.76"
-WORKER_IP="192.168.122.77"
+CONTROL_PLANE_IP="192.168.1.10"
+WORKER_IP="192.168.1.11"
 KUBERNETES_VERSION="1.34.2"
 TALOS_VERSION="v1.10.8"
 
@@ -50,11 +50,26 @@ mkdir -p "$TALOS_DIR"
 # Copy the main cluster config
 cp "$TEMP_DIR/talosconfig" "$PROJECT_DIR/.talosconfig" 2>/dev/null || true
 
+# Update talosconfig with endpoint
+export TALOSCONFIG="$PROJECT_DIR/.talosconfig"
+talosctl config endpoint "$CONTROL_PLANE_IP"
+talosctl config node "$CONTROL_PLANE_IP"
+
 # Extract control plane config
 cp "$TEMP_DIR/controlplane.yaml" "$TALOS_DIR/controlplane.yaml"
 
+# Patch controlplane config with static IP and correct disk
+talosctl machineconfig patch "$TALOS_DIR/controlplane.yaml" \
+  --patch '[{"op": "replace", "path": "/machine/network", "value": {"hostname": "talos-controlplane", "interfaces": [{"interface": "eth0", "dhcp": true}]}}, {"op": "replace", "path": "/machine/install/disk", "value": "/dev/vda"}]' \
+  --output "$TALOS_DIR/controlplane.yaml"
+
 # Extract worker config
 cp "$TEMP_DIR/worker.yaml" "$TALOS_DIR/worker.yaml"
+
+# Patch worker config with static IP and correct disk
+talosctl machineconfig patch "$TALOS_DIR/worker.yaml" \
+  --patch '[{"op": "replace", "path": "/machine/network", "value": {"hostname": "talos-worker", "interfaces": [{"interface": "eth0", "dhcp": true}]}}, {"op": "replace", "path": "/machine/install/disk", "value": "/dev/vda"}]' \
+  --output "$TALOS_DIR/worker.yaml"
 
 # Generate cluster.yaml for reference
 cat > "$TALOS_DIR/cluster.yaml" << EOF
@@ -76,11 +91,15 @@ spec:
 EOF
 
 echo ""
-echo "✓ Talos configurations generated successfully!"
+echo "Talos configurations generated successfully!"
 echo ""
 echo "Generated files:"
 echo "  - $TALOS_DIR/controlplane.yaml (Control Plane)"
 echo "  - $TALOS_DIR/worker.yaml (Worker)"
 echo "  - $TALOS_DIR/cluster.yaml (Cluster config reference)"
 echo ""
+echo "Next steps:"
+echo "  1. Review the generated configs"
+echo "  2. Run: sudo ./scripts/create-vms.sh"
+echo "  3. Run: ./scripts/bootstrap-cluster.sh"
 

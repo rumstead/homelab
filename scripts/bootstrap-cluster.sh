@@ -9,8 +9,8 @@ PROJECT_DIR="$(dirname "$SCRIPT_DIR")"
 TALOS_DIR="$PROJECT_DIR/talos"
 
 CLUSTER_NAME="acemagic-talos"
-CONTROLPLANE_IP="192.168.122.76"
-WORKER_IP="192.168.122.77"
+CONTROLPLANE_IP="192.168.1.10"
+WORKER_IP="192.168.1.11"
 
 echo "================================================"
 echo "Talos Cluster Bootstrap"
@@ -53,8 +53,9 @@ echo "Applying machine configuration to worker..."
 talosctl apply-config --insecure --nodes "$WORKER_IP" --file "$TALOS_DIR/worker.yaml"
 
 echo ""
-echo "Waiting for nodes to apply configuration..."
-sleep 30
+echo "Waiting for nodes to apply configuration and reboot..."
+echo "This may take 2-3 minutes..."
+sleep 60
 
 # Wait for nodes to be ready
 echo "Waiting for control plane node to be ready..."
@@ -62,11 +63,13 @@ RETRIES=0
 MAX_RETRIES=120
 
 while [ $RETRIES -lt $MAX_RETRIES ]; do
-    if talosctl -n "$CONTROLPLANE_IP" service status etcd &>/dev/null; then
+    if talosctl -n "$CONTROLPLANE_IP" service status etcd &>/dev/null 2>&1; then
         echo "✓ Control plane is ready!"
         break
     fi
-    echo "  Waiting... ($((RETRIES+1))/$MAX_RETRIES)"
+    if [ $((RETRIES % 6)) -eq 0 ]; then
+        echo "  Waiting... ($((RETRIES+1))/$MAX_RETRIES)"
+    fi
     sleep 5
     ((RETRIES++))
 done
@@ -173,10 +176,10 @@ echo "  export KUBECONFIG=$PROJECT_DIR/kubeconfig"
 echo "  kubectl get pods --all-namespaces"
 echo ""
 echo "To access Talos nodes:"
-echo "  talosctl -n $CONTROLPLANE_IP status"
-echo "  talosctl -n $WORKER_IP status"
+echo "  talosctl -n $CONTROLPLANE_IP get nodes"
+echo "  talosctl -n $WORKER_IP get nodes"
 echo ""
-echo "To access node console:"
+echo "To access node dashboard:"
 echo "  talosctl -n $CONTROLPLANE_IP dashboard"
 echo "  talosctl -n $WORKER_IP dashboard"
 

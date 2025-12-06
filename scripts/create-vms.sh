@@ -4,18 +4,16 @@
 
 set -e
 
-# Use kernel/initrd for network boot instead of ISO
 TALOS_VERSION="v1.10.8"
-KERNEL_URL="https://github.com/siderolabs/talos/releases/download/${TALOS_VERSION}/vmlinuz-amd64"
-INITRD_URL="https://github.com/siderolabs/talos/releases/download/${TALOS_VERSION}/initramfs-amd64.xz"
-KERNEL_PATH="/tmp/talos-vmlinuz"
-INITRD_PATH="/tmp/talos-initramfs.xz"
+ISO_URL="https://github.com/siderolabs/talos/releases/download/${TALOS_VERSION}/metal-amd64.iso"
+ISO_PATH="/tmp/talos-metal-amd64.iso"
 
 LIBVIRT_POOL_PATH="/var/lib/libvirt/images"
-LIBVIRT_NETWORK="default"
+BRIDGE_NAME="br0"
+PHYSICAL_INTERFACE="enp2s0"
 
-CONTROLPLANE_NAME="acemagic-talos-controlplane"
-WORKER_NAME="acemagic-talos-worker"
+CONTROLPLANE_NAME="talos-controlplane"
+WORKER_NAME="talos-worker"
 
 echo "================================================"
 echo "Talos VM Creation Script (virt-install)"
@@ -38,16 +36,33 @@ if ! systemctl is-active --quiet libvirtd; then
     systemctl start libvirtd
 fi
 
-# Download Talos kernel and initrd if not present
-echo "Checking Talos boot files..."
-if [ ! -f "$KERNEL_PATH" ]; then
-    echo "Downloading Talos kernel..."
-    curl -L -o "$KERNEL_PATH" "$KERNEL_URL"
+# Create bridge network if it doesn't exist
+echo "Checking bridge network..."
+if ! ip link show "$BRIDGE_NAME" &>/dev/null; then
+    echo "Creating bridge $BRIDGE_NAME..."
+    ip link add name "$BRIDGE_NAME" type bridge
+    ip link set "$PHYSICAL_INTERFACE" master "$BRIDGE_NAME"
+    
+    # Transfer IP from physical interface to bridge
+    PHYS_IP=$(ip -4 addr show "$PHYSICAL_INTERFACE" | grep -oP '(?<=inet\s)\d+(\.\d+){3}/\d+' || true)
+    if [ -n "$PHYS_IP" ]; then
+        ip addr del "$PHYS_IP" dev "$PHYSICAL_INTERFACE" || true
+        ip addr add "$PHYS_IP" dev "$BRIDGE_NAME"
+    fi
+    
+    ip link set "$BRIDGE_NAME" up
+    ip link set "$PHYSICAL_INTERFACE" up
+    
+    echo "Bridge created and configured"
+else
+    echo "Bridge $BRIDGE_NAME already exists"
 fi
 
-if [ ! -f "$INITRD_PATH" ]; then
-    echo "Downloading Talos initramfs..."
-    curl -L -o "$INITRD_PATH" "$INITRD_URL"
+# Download Talos ISO if not present
+echo "Checking Talos ISO..."
+if [ ! -f "$ISO_PATH" ]; then
+    echo "Downloading Talos ISO..."
+    curl -L -o "$ISO_PATH" "$ISO_URL"
 fi
 
 # Clean up existing VMs if they exist
@@ -70,12 +85,12 @@ virt-install \
     --vcpus 2 \
     --memory 2048 \
     --disk path="$LIBVIRT_POOL_PATH/$CONTROLPLANE_NAME.qcow2,size=5,format=qcow2,bus=virtio" \
-    --network network="$LIBVIRT_NETWORK,mac=52:54:00:12:34:56" \
-    --boot kernel="$KERNEL_PATH",initrd="$INITRD_PATH",kernel_args='talos.platform=metal console=ttyS0' \
+    --cdrom "$ISO_PATH" \
+    --network bridge="$BRIDGE_NAME",mac=52:54:00:12:34:56,model=virtio \
     --osinfo detect=on,name=linux2024 \
     --graphics vnc \
     --console pty,target_type=serial \
-    --import \
+    --boot hd,cdrom \
     --noautoconsole
 
 echo "✓ Control Plane VM created!"
@@ -83,8 +98,7 @@ echo ""
 echo "Creating Worker VM (with GPU passthrough)..."
 echo ""
 echo "NOTE: Update the GPU PCI address before running!"
-echo "Find your GPU with: lspci | grep -i nvidia/amd/intel"
-echo "Your AMD Barcelo GPU detected at: 0000:03:00.0"
+echo "Find your GPU with: lspci | grep -i gpa"
 echo ""
 read -p "Enter GPU PCI address (default: 0000:03:00.0): " GPU_PCI
 GPU_PCI="${GPU_PCI:-0000:03:00.0}"
@@ -94,13 +108,13 @@ virt-install \
     --vcpus 6 \
     --memory 10240 \
     --disk path="$LIBVIRT_POOL_PATH/$WORKER_NAME.qcow2,size=25,format=qcow2,bus=virtio" \
-    --network network="$LIBVIRT_NETWORK,mac=52:54:00:12:34:57" \
-    --boot kernel="$KERNEL_PATH",initrd="$INITRD_PATH",kernel_args='talos.platform=metal console=ttyS0' \
+    --cdrom "$ISO_PATH" \
+    --network bridge="$BRIDGE_NAME",mac=52:54:00:12:34:57,model=virtio \
     --osinfo detect=on,name=linux2024 \
     --graphics vnc \
     --console pty,target_type=serial \
+    --boot hd,cdrom \
     --hostdev "$GPU_PCI" \
-    --import \
     --noautoconsole
 
 echo "✓ Worker VM created!"
@@ -128,15 +142,19 @@ echo ""
 echo "Next step:"
 echo "  Run: ./scripts/bootstrap-cluster.sh"
 echo ""
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+PROJECT_DIR="$(dirname "$SCRIPT_DIR")"
+VMS_DIR="$PROJECT_DIR/vms"
+
 echo "================================================"
 echo "Exporting VM XML definitions..."
 echo "================================================"
-virsh dumpxml "$CONTROLPLANE_NAME" > "$LIBVIRT_POOL_PATH/../controlplane.xml" 2>/dev/null || true
-virsh dumpxml "$WORKER_NAME" > "$LIBVIRT_POOL_PATH/../worker.xml" 2>/dev/null || true
+mkdir -p "$VMS_DIR"
+virsh dumpxml "$CONTROLPLANE_NAME" > "$VMS_DIR/controlplane.xml" 2>/dev/null || true
+virsh dumpxml "$WORKER_NAME" > "$VMS_DIR/worker.xml" 2>/dev/null || true
 echo "✓ XML definitions exported to:"
-echo "  - $LIBVIRT_POOL_PATH/../controlplane.xml"
-echo "  - $LIBVIRT_POOL_PATH/../worker.xml"
+echo "  - $VMS_DIR/controlplane.xml"
+echo "  - $VMS_DIR/worker.xml"
 echo ""
-echo "You can now backup these or use them to recreate VMs later"
 
 
