@@ -6,9 +6,9 @@ metadata:
 spec:
   project: default
   source:
-    repoURL: https://github.com/kubernetes-sigs/metrics-server.git
+    repoURL: https://github.com/rumstead/homelab.git
     targetRevision: HEAD
-    path: manifests/base
+    path: kubernetes/manifests/metrics-server
   destination:
     server: https://kubernetes.default.svc
     namespace: kube-system
