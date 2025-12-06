@@ -1,0 +1,15 @@
+# Talos cluster configuration
+apiVersion: talos.dev/v1alpha1
+kind: Cluster
+metadata:
+  name: acemagic-talos
+spec:
+  controlPlane:
+    endpoint: https://192.168.122.76:6443
+  kubernetesVersion: "1.34.2"
+  allowSchedulingOnControlPlanes: false
+  talosVersion: "v1.10.8"
+  network:
+    dnsDomain: cluster.local
+    cni:
+      name: cilium
