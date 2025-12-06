@@ -21,13 +21,5 @@ patches:
                   - --secure-port=10250
                   - --kubelet-preferred-address-types=InternalDNS,Hostname,InternalIP
                   - --kubelet-use-node-status-port
-                  - --kubelet-certificate-authority=/etc/kubelet-ca/ca.crt
+                  - --kubelet-insecure-tls
                   - --metric-resolution=15s
-                volumeMounts:
-                  - name: kubelet-ca
-                    mountPath: /etc/kubelet-ca
-                    readOnly: true
-            volumes:
-              - name: kubelet-ca
-                secret:
-                  secretName: kubelet-serving-ca
