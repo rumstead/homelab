@@ -9,8 +9,8 @@ PROJECT_DIR="$(dirname "$SCRIPT_DIR")"
 TALOS_DIR="$PROJECT_DIR/talos"
 
 CLUSTER_NAME="acemagic-talos"
-CONTROLPLANE_IP="192.168.1.10"
-WORKER_IP="192.168.1.11"
+CONTROLPLANE_IP="${CONTROLPLANE_IP:-192.168.1.10}"
+WORKER_IP="${WORKER_IP:-192.168.1.11}"
 TALOSCONFIG_PATH="${TALOSCONFIG:-$HOME/.talos/config}"
 
 echo "================================================"
@@ -48,10 +48,10 @@ fi
 # Apply machine configurations
 echo "Applying machine configuration to control plane..."
 export TALOSCONFIG="$TALOSCONFIG_PATH"
-talosctl apply-config --insecure --nodes "$CONTROLPLANE_IP" --file "$TALOS_DIR/controlplane.yaml" || true
+talosctl apply-config --insecure --nodes "$CONTROLPLANE_IP" --mode=reboot --file "$TALOS_DIR/controlplane.yaml"
 
 echo "Applying machine configuration to worker..."
-talosctl apply-config --insecure --nodes "$WORKER_IP" --file "$TALOS_DIR/worker.yaml" || true
+talosctl apply-config --insecure --nodes "$WORKER_IP" --mode=reboot --file "$TALOS_DIR/worker.yaml"
 
 echo ""
 echo "Waiting for nodes to apply configuration and reboot..."
@@ -64,7 +64,7 @@ RETRIES=0
 MAX_RETRIES=120
 
 while [ $RETRIES -lt $MAX_RETRIES ]; do
-    if talosctl -n "$CONTROLPLANE_IP" service status etcd &>/dev/null 2>&1; then
+    if talosctl -n "$CONTROLPLANE_IP" service etcd status &>/dev/null 2>&1; then
         echo "✓ Control plane is ready!"
         break
     fi
@@ -123,8 +123,7 @@ fi
 
 # Generate kubeconfig
 echo "Generating kubeconfig..."
-talosctl -n "$CONTROLPLANE_IP" kubeconfig "$PROJECT_DIR/kubeconfig"
-chmod 600 "$PROJECT_DIR/kubeconfig"
+talosctl -n "$CONTROLPLANE_IP" kubeconfig
 
 # Wait for worker node to be discoverable
 echo ""
@@ -156,7 +155,8 @@ RETRIES=0
 MAX_RETRIES=60
 
 while [ $RETRIES -lt $MAX_RETRIES ]; do
-    NODES=$(kubectl get nodes --no-headers 2>/dev/null | wc -l || echo 0)
+    NODES=$(kubectl get nodes --no-headers 2>/dev/null | wc -l 2>/dev/null || true)
+    NODES=${NODES:-0}
     if [ "$NODES" -ge 1 ]; then
         echo "✓ Nodes are joining the cluster!"
         break

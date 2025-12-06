@@ -124,7 +124,7 @@ echo "✓ VMs created and started successfully!"
 echo "================================================"
 echo ""
 echo "VM Details:"
-virsh list --name | grep acemagic
+virsh list --name
 echo ""
 echo "To access VM console:"
 echo "  virsh console $CONTROLPLANE_NAME"
