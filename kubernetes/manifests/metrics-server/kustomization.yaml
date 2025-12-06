@@ -21,4 +21,16 @@ patches:
                   - --secure-port=10250
                   - --kubelet-preferred-address-types=InternalDNS,Hostname,InternalIP
                   - --kubelet-use-node-status-port
+                  - --kubelet-certificate-authority=/etc/ca-certificates/ca.crt
                   - --metric-resolution=15s
+                volumeMounts:
+                  - name: ca-cert
+                    mountPath: /etc/ca-certificates
+                    readOnly: true
+            volumes:
+              - name: ca-cert
+                configMap:
+                  name: extension-apiserver-authentication
+                  items:
+                    - key: client-ca-file
+                      path: ca.crt
