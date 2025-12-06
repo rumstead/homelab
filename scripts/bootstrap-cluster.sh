@@ -1,3 +1,4 @@
+
 #!/bin/bash
 # Bootstrap Talos cluster
 # This script configures the Talos nodes and initializes Kubernetes
@@ -47,10 +48,10 @@ fi
 # Apply machine configurations
 echo "Applying machine configuration to control plane..."
 export TALOSCONFIG="$PROJECT_DIR/.talosconfig"
-talosctl apply-config --insecure --nodes "$CONTROLPLANE_IP" --file "$TALOS_DIR/controlplane.yaml"
+talosctl apply-config --insecure --nodes "$CONTROLPLANE_IP" --file "$TALOS_DIR/controlplane.yaml" || true
 
 echo "Applying machine configuration to worker..."
-talosctl apply-config --insecure --nodes "$WORKER_IP" --file "$TALOS_DIR/worker.yaml"
+talosctl apply-config --insecure --nodes "$WORKER_IP" --file "$TALOS_DIR/worker.yaml" || true
 
 echo ""
 echo "Waiting for nodes to apply configuration and reboot..."
