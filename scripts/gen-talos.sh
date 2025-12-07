@@ -28,7 +28,7 @@ fi
 
 # Create temporary directory for generation
 TEMP_DIR=$(mktemp -d)
-trap "rm -rf $TEMP_DIR" EXIT
+trap 'rm -rf $TEMP_DIR' EXIT
 
 # Generate secrets and certificates
 echo "Generating secrets..."
@@ -58,9 +58,9 @@ talosctl config node "$CONTROL_PLANE_IP"
 # Extract control plane config
 cp "$TEMP_DIR/controlplane.yaml" "$TALOS_DIR/controlplane.yaml"
 
-# Patch controlplane config with static IP, correct disk, and cert SANs
+# Patch controlplane config with static IP, correct disk, cert SANs, and Cilium CNI
 talosctl machineconfig patch "$TALOS_DIR/controlplane.yaml" \
-  --patch '[{"op": "replace", "path": "/machine/network", "value": {"hostname": "talos-controlplane", "interfaces": [{"interface": "eth0", "dhcp": true}]}}, {"op": "replace", "path": "/machine/install/disk", "value": "/dev/vda"}, {"op": "replace", "path": "/machine/certSANs", "value": ["'$CONTROL_PLANE_IP'", "talos-controlplane"]}]' \
+  --patch '[{"op": "replace", "path": "/machine/network", "value": {"hostname": "talos-controlplane", "interfaces": [{"interface": "eth0", "dhcp": true}]}}, {"op": "replace", "path": "/machine/install/disk", "value": "/dev/vda"}, {"op": "replace", "path": "/machine/certSANs", "value": ["'$CONTROL_PLANE_IP'", "talos-controlplane"]}, {"op": "replace", "path": "/cluster/network/cni", "value": {"name": "none"}}]' \
   --output "$TALOS_DIR/controlplane.yaml"
 
 # Extract worker config
