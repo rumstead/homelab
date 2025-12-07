@@ -66,9 +66,9 @@ talosctl machineconfig patch "$TALOS_DIR/controlplane.yaml" \
 # Extract worker config
 cp "$TEMP_DIR/worker.yaml" "$TALOS_DIR/worker.yaml"
 
-# Patch worker config with static IP, correct disk, and cert SANs
+# Patch worker config with static IP, correct disk, cert SANs, and Cilium CNI
 talosctl machineconfig patch "$TALOS_DIR/worker.yaml" \
-  --patch '[{"op": "replace", "path": "/machine/network", "value": {"hostname": "talos-worker", "interfaces": [{"interface": "eth0", "dhcp": true}]}}, {"op": "replace", "path": "/machine/install/disk", "value": "/dev/vda"}, {"op": "replace", "path": "/machine/certSANs", "value": ["'$WORKER_IP'", "talos-worker"]}]' \
+  --patch '[{"op": "replace", "path": "/machine/network", "value": {"hostname": "talos-worker", "interfaces": [{"interface": "eth0", "dhcp": true}]}}, {"op": "replace", "path": "/machine/install/disk", "value": "/dev/vda"}, {"op": "replace", "path": "/machine/certSANs", "value": ["'$WORKER_IP'", "talos-worker"]}, {"op": "replace", "path": "/cluster/network/cni", "value": {"name": "none"}}]' \
   --output "$TALOS_DIR/worker.yaml"
 
 # Generate cluster.yaml for reference
