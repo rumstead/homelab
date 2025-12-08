@@ -1,0 +1,16 @@
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: argocd-server-cert
+  namespace: argocd
+spec:
+  secretName: argocd-server-tls
+  duration: 8760h # 1 year
+  renewBefore: 720h # 30 days
+  commonName: argocd.acemagic.lab
+  dnsNames:
+    - argocd.acemagic.lab
+  issuerRef:
+    name: homelab-ca-issuer
+    kind: ClusterIssuer
+    group: cert-manager.io

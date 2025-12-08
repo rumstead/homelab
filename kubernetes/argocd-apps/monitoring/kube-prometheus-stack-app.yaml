@@ -1,0 +1,80 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: kube-prometheus-stack
+  namespace: argocd
+spec:
+  project: default
+  source:
+    repoURL: https://prometheus-community.github.io/helm-charts
+    chart: kube-prometheus-stack
+    targetRevision: 80.0.0
+    helm:
+      valuesObject:
+        # Grafana config
+        grafana:
+          enabled: true
+          adminPassword: admin  # :-)
+          service:
+            type: ClusterIP
+          # Enable persistence for dashboards
+          persistence:
+            enabled: true
+            size: 1Gi
+          # Additional scrape targets for host machine
+          additionalDataSources:
+            - name: Prometheus
+              type: prometheus
+              url: http://kube-prometheus-stack-prometheus:9090
+              isDefault: true
+        
+        # Prometheus config
+        prometheus:
+          prometheusSpec:
+            # Scrape interval
+            scrapeInterval: 30s
+            # Retention
+            retention: 7d
+            # Storage
+            storageSpec:
+              volumeClaimTemplate:
+                spec:
+                  accessModes: ["ReadWriteOnce"]
+                  resources:
+                    requests:
+                      storage: 10Gi
+            # Additional scrape configs for host machine
+            additionalScrapeConfigs:
+              - job_name: 'host-node-exporter'
+                static_configs:
+                  - targets: ['192.168.1.50:9100']
+                    labels:
+                      instance: 'ubuntu-host'
+        
+        # AlertManager - disable for now
+        alertmanager:
+          enabled: false
+        
+        # Node exporter for VM metrics (runs as DaemonSet on k8s nodes)
+        nodeExporter:
+          enabled: true
+        
+        # Kube-state-metrics
+        kubeStateMetrics:
+          enabled: true
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: monitoring
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true
+      - ServerSideApply=true
+    retry:
+      limit: 5
+      backoff:
+        duration: 5s
+        factor: 2
+        maxDuration: 3m

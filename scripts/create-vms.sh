@@ -84,7 +84,7 @@ virt-install \
     --name "$CONTROLPLANE_NAME" \
     --vcpus 2 \
     --memory 2048 \
-    --disk path="$LIBVIRT_POOL_PATH/$CONTROLPLANE_NAME.qcow2,size=5,format=qcow2,bus=virtio" \
+    --disk path="$LIBVIRT_POOL_PATH/$CONTROLPLANE_NAME.qcow2,size=10,format=qcow2,bus=virtio" \
     --cdrom "$ISO_PATH" \
     --network bridge="$BRIDGE_NAME",mac=52:54:00:12:34:56,model=virtio \
     --osinfo detect=on,name=linux2024 \

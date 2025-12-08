@@ -1,0 +1,20 @@
+apiVersion: gateway.networking.k8s.io/v1alpha2
+kind: TLSRoute
+metadata:
+  name: argocd-server
+  namespace: argocd
+spec:
+  hostnames:
+    - argocd.acemagic.lab
+  parentRefs:
+    - group: gateway.networking.k8s.io
+      kind: Gateway
+      name: homelab-gateway
+      namespace: gateway-api
+  rules:
+    - backendRefs:
+        - group: ''
+          kind: Service
+          name: argocd-server
+          port: 443
+          weight: 1
