@@ -10,6 +10,9 @@ spec:
     chart: cilium
     targetRevision: 1.16.5
     helm:
+      helmParameters:
+        - name: gatewayAPI.enabled
+          value: "true"
       valuesObject:
         ipam:
           mode: kubernetes
@@ -45,8 +48,6 @@ spec:
     automated:
       prune: true
       selfHeal: true
-    syncOptions:
-      - CreateNamespace=false
     retry:
       limit: 5
       backoff:
