@@ -10,9 +10,6 @@ spec:
     chart: cilium
     targetRevision: 1.16.5
     helm:
-      parameters:
-        - name: gatewayAPI.enabled
-          value: "true"
       valuesObject:
         ipam:
           mode: kubernetes
