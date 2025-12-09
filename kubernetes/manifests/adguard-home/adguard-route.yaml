@@ -6,7 +6,7 @@ metadata:
 spec:
   parentRefs:
     - name: homelab-gateway
-      namespace: default
+      namespace: gateway-api
   hostnames:
     - "adguard.acemagic.lab"
   rules:
