@@ -1,0 +1,68 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: external-dns
+  namespace: argocd
+spec:
+  project: default
+  sources:
+    - repoURL: https://kubernetes-sigs.github.io/external-dns/
+      chart: external-dns
+      targetRevision: 1.15.0
+      helm:
+        valuesObject:
+          sources:
+            - gateway-httproute
+            - gateway-grpcroute
+            - gateway-tlsroute
+            - gateway-tcproute
+            - gateway-udproute
+          provider:
+            name: webhook
+            webhook:
+              image:
+                repository: ghcr.io/muhlba91/external-dns-provider-adguard
+                tag: v8.0.0
+              env:
+                - name: LOG_LEVEL
+                  value: info
+                - name: ADGUARD_URL
+                  value: "http://adguard-home.adguard.svc.cluster.local:3000"
+                - name: ADGUARD_USER
+                  valueFrom:
+                    secretKeyRef:
+                      name: adguard-credentials
+                      key: username
+                - name: ADGUARD_PASSWORD
+                  valueFrom:
+                    secretKeyRef:
+                      name: adguard-credentials
+                      key: password
+              livenessProbe:
+                httpGet:
+                  path: /healthz
+                  port: http-webhook
+                initialDelaySeconds: 10
+                periodSeconds: 10
+              readinessProbe:
+                httpGet:
+                  path: /healthz
+                  port: http-webhook
+                initialDelaySeconds: 5
+                periodSeconds: 5
+          policy: upsert-only
+          registry: noop
+          interval: 1m
+          logLevel: info
+    - repoURL: https://github.com/rumstead/homelab.git
+      targetRevision: main
+      path: kubernetes/manifests/external-dns
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: external-dns
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true
