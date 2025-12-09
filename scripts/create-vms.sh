@@ -21,7 +21,7 @@ echo "================================================"
 echo ""
 echo "VMs to create:"
 echo "  - $CONTROLPLANE_NAME (2 CPU, 5GB RAM, 10GB disk)"
-echo "  - $WORKER_NAME (6 CPU, 10GB RAM, 25GB disk, GPU passthrough)"
+echo "  - $WORKER_NAME (6 CPU, 10GB RAM, 150GB disk, GPU passthrough)"
 echo ""
 
 # Check if running as root
@@ -107,7 +107,7 @@ virt-install \
     --name "$WORKER_NAME" \
     --vcpus 6 \
     --memory 10240 \
-    --disk path="$LIBVIRT_POOL_PATH/$WORKER_NAME.qcow2,size=25,format=qcow2,bus=virtio" \
+    --disk path="$LIBVIRT_POOL_PATH/$WORKER_NAME.qcow2,size=150,format=qcow2,bus=virtio" \
     --cdrom "$ISO_PATH" \
     --network bridge="$BRIDGE_NAME",mac=52:54:00:12:34:57,model=virtio \
     --osinfo detect=on,name=linux2024 \
