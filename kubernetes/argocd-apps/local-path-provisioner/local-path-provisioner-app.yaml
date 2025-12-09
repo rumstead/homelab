@@ -9,6 +9,10 @@ spec:
     repoURL: https://github.com/rancher/local-path-provisioner.git
     targetRevision: v0.0.32
     path: deploy/chart/local-path-provisioner
+    helm:
+      parameters:
+        - name: storageClass.defaultClass
+          value: "true"
   destination:
     server: https://kubernetes.default.svc
     namespace: kube-system
