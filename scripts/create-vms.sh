@@ -20,7 +20,7 @@ echo "Talos VM Creation Script (virt-install)"
 echo "================================================"
 echo ""
 echo "VMs to create:"
-echo "  - $CONTROLPLANE_NAME (2 CPU, 2GB RAM, 5GB disk)"
+echo "  - $CONTROLPLANE_NAME (2 CPU, 5GB RAM, 10GB disk)"
 echo "  - $WORKER_NAME (6 CPU, 10GB RAM, 25GB disk, GPU passthrough)"
 echo ""
 
@@ -83,7 +83,7 @@ echo "Creating Control Plane VM..."
 virt-install \
     --name "$CONTROLPLANE_NAME" \
     --vcpus 2 \
-    --memory 2048 \
+    --memory 5120 \
     --disk path="$LIBVIRT_POOL_PATH/$CONTROLPLANE_NAME.qcow2,size=10,format=qcow2,bus=virtio" \
     --cdrom "$ISO_PATH" \
     --network bridge="$BRIDGE_NAME",mac=52:54:00:12:34:56,model=virtio \
