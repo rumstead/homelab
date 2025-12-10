@@ -25,7 +25,7 @@ spec:
                 tag: v11.0.0
               env:
                 - name: LOG_LEVEL
-                  value: debug
+                  value: info
                 - name: ADGUARD_URL
                   value: "http://adguard-home.adguard.svc.cluster.local:80"
                 - name: ADGUARD_USER
@@ -51,10 +51,10 @@ spec:
                   port: http-webhook
                 initialDelaySeconds: 5
                 periodSeconds: 5
-          policy: upsert-only
+          policy: sync
           registry: noop
           interval: 15m
-          logLevel: debug
+          logLevel: info
     - repoURL: https://github.com/rumstead/homelab.git
       targetRevision: main
       path: kubernetes/manifests/external-dns
