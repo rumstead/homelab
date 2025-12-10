@@ -22,6 +22,9 @@ spec:
           enabled: true
         externalIPs:
           enabled: true
+        devices:
+          - "enp+"
+          - "eth+"
         securityContext:
           capabilities:
             ciliumAgent:
