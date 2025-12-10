@@ -16,4 +16,4 @@ spec:
             value: /
       backendRefs:
         - name: adguard-home
-          port: 3000
+          port: 80

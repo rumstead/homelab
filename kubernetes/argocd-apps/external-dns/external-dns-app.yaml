@@ -27,7 +27,7 @@ spec:
                 - name: LOG_LEVEL
                   value: info
                 - name: ADGUARD_URL
-                  value: "http://adguard-home.adguard.svc.cluster.local:3000"
+                  value: "http://adguard-home.adguard.svc.cluster.local:80"
                 - name: ADGUARD_USER
                   valueFrom:
                     secretKeyRef:

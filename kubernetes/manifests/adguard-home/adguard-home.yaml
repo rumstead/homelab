@@ -47,9 +47,12 @@ spec:
             - containerPort: 53
               protocol: TCP
               name: dns-tcp
-            - containerPort: 3000
+            - containerPort: 80
               protocol: TCP
               name: http
+            - containerPort: 3000
+              protocol: TCP
+              name: setup
           volumeMounts:
             - name: config
               mountPath: /opt/adguardhome/conf
@@ -80,10 +83,14 @@ spec:
   selector:
     app: adguard-home
   ports:
+    - port: 80
+      targetPort: 80
+      protocol: TCP
+      name: http
     - port: 3000
       targetPort: 3000
       protocol: TCP
-      name: http
+      name: setup
 ---
 apiVersion: v1
 kind: Service
