@@ -24,8 +24,6 @@ spec:
                 repository: ghcr.io/muhlba91/external-dns-provider-adguard
                 tag: v11.0.0
               env:
-                - name: LOG_LEVEL
-                  value: debug
                 - name: ADGUARD_URL
                   value: "http://adguard-home.adguard.svc.cluster.local:80"
                 - name: ADGUARD_USER
@@ -54,7 +52,7 @@ spec:
           policy: upsert-only
           registry: noop
           interval: 15m
-          logLevel: info
+          logLevel: debug
     - repoURL: https://github.com/rumstead/homelab.git
       targetRevision: main
       path: kubernetes/manifests/external-dns
