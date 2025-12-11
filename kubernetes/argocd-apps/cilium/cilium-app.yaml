@@ -25,6 +25,8 @@ spec:
         devices:
           - "enp+"
           - "eth+"
+        bpf:
+          masquerade: true
         securityContext:
           capabilities:
             ciliumAgent:
