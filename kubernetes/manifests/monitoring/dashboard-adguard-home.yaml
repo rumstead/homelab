@@ -92,7 +92,7 @@ data:
           "pluginVersion": "8.0.0",
           "targets": [
             {
-              "expr": "sum(increase(adguard_num_dns_queries_total{instance=~\"$instance\"}[24h]))",
+              "expr": "sum(increase(adguard_num_dns_queries{instance=~\"$instance\"}[24h]))",
               "refId": "A"
             }
           ],
@@ -144,7 +144,7 @@ data:
           "pluginVersion": "8.0.0",
           "targets": [
             {
-              "expr": "sum(increase(adguard_num_blocked_filtering_total{instance=~\"$instance\"}[24h]))",
+              "expr": "sum(increase(adguard_num_blocked_filtering{instance=~\"$instance\"}[24h]))",
               "refId": "A"
             }
           ],
@@ -206,7 +206,7 @@ data:
           "pluginVersion": "8.0.0",
           "targets": [
             {
-              "expr": "(sum(increase(adguard_num_blocked_filtering_total{instance=~\"$instance\"}[24h])) / sum(increase(adguard_num_dns_queries_total{instance=~\"$instance\"}[24h]))) * 100",
+              "expr": "(sum(increase(adguard_num_blocked_filtering{instance=~\"$instance\"}[24h])) / sum(increase(adguard_num_dns_queries{instance=~\"$instance\"}[24h]))) * 100",
               "refId": "A"
             }
           ],
@@ -383,12 +383,12 @@ data:
           "pluginVersion": "8.0.0",
           "targets": [
             {
-              "expr": "rate(adguard_num_dns_queries_total{instance=~\"$instance\"}[5m]) * 60",
+              "expr": "rate(adguard_num_dns_queries{instance=~\"$instance\"}[5m]) * 60",
               "legendFormat": "Total Queries",
               "refId": "A"
             },
             {
-              "expr": "rate(adguard_num_blocked_filtering_total{instance=~\"$instance\"}[5m]) * 60",
+              "expr": "rate(adguard_num_blocked_filtering{instance=~\"$instance\"}[5m]) * 60",
               "legendFormat": "Blocked",
               "refId": "B"
             }
@@ -469,7 +469,7 @@ data:
           "pluginVersion": "8.0.0",
           "targets": [
             {
-              "expr": "(rate(adguard_num_blocked_filtering_total{instance=~\"$instance\"}[5m]) / rate(adguard_num_dns_queries_total{instance=~\"$instance\"}[5m])) * 100",
+              "expr": "(rate(adguard_num_blocked_filtering{instance=~\"$instance\"}[5m]) / rate(adguard_num_dns_queries{instance=~\"$instance\"}[5m])) * 100",
               "legendFormat": "Blocked %",
               "refId": "A"
             }
@@ -869,22 +869,22 @@ data:
           "pluginVersion": "8.0.0",
           "targets": [
             {
-              "expr": "rate(adguard_num_blocked_filtering_total{instance=~\"$instance\"}[5m]) * 60",
+              "expr": "rate(adguard_num_blocked_filtering{instance=~\"$instance\"}[5m]) * 60",
               "legendFormat": "Filtered",
               "refId": "A"
             },
             {
-              "expr": "rate(adguard_num_replaced_safebrowsing_total{instance=~\"$instance\"}[5m]) * 60",
+              "expr": "rate(adguard_num_replaced_safebrowsing{instance=~\"$instance\"}[5m]) * 60",
               "legendFormat": "Safe Browsing",
               "refId": "B"
             },
             {
-              "expr": "rate(adguard_num_replaced_parental_total{instance=~\"$instance\"}[5m]) * 60",
+              "expr": "rate(adguard_num_replaced_parental{instance=~\"$instance\"}[5m]) * 60",
               "legendFormat": "Parental Control",
               "refId": "C"
             },
             {
-              "expr": "rate(adguard_num_replaced_safesearch_total{instance=~\"$instance\"}[5m]) * 60",
+              "expr": "rate(adguard_num_replaced_safesearch{instance=~\"$instance\"}[5m]) * 60",
               "legendFormat": "Safe Search",
               "refId": "D"
             }
@@ -931,7 +931,7 @@ data:
               "value": "$__all"
             },
             "datasource": "${datasource}",
-            "definition": "label_values(adguard_num_dns_queries_total, instance)",
+            "definition": "label_values(adguard_num_dns_queries, instance)",
             "description": null,
             "error": null,
             "hide": 0,
@@ -941,7 +941,7 @@ data:
             "name": "instance",
             "options": [],
             "query": {
-              "query": "label_values(adguard_num_dns_queries_total, instance)",
+              "query": "label_values(adguard_num_dns_queries, instance)",
               "refId": "StandardVariableQuery"
             },
             "refresh": 1,
