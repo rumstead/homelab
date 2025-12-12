@@ -38,13 +38,6 @@ spec:
                 runAsNonRoot: true
                 runAsUser: 65534
                 runAsGroup: 65534
-              initContainers:
-                - name: fix-perms
-                  image: busybox:1.36
-                  command: ["sh", "-c", "chown -R 65534:65534 /prometheus"]
-                  volumeMounts:
-                    - name: prometheus-kube-prometheus-stack-prometheus-db
-                      mountPath: /prometheus
               # Scrape interval
               scrapeInterval: 30s
               # Retention
