@@ -32,26 +32,12 @@ spec:
           prometheus:
             prometheusSpec:
               podSecurityContext:
-                fsGroup: 65534
+                fsGroup: 0
                 fsGroupChangePolicy: OnRootMismatch
               securityContext:
-                runAsNonRoot: true
-                runAsUser: 65534
-                runAsGroup: 65534
-              initContainers:
-                - name: fix-perms
-                  image: busybox:1.36
-                  command: ["sh", "-c", "chown -R 65534:65534 /prometheus"]
-                  securityContext:
-                    runAsNonRoot: true
-                    runAsUser: 65534
-                    runAsGroup: 65534
-                    allowPrivilegeEscalation: false
-                    capabilities:
-                      add: ["CHOWN", "FOWNER"]
-                  volumeMounts:
-                    - name: prometheus-kube-prometheus-stack-prometheus-db
-                      mountPath: /prometheus
+                runAsNonRoot: false
+                runAsUser: 0
+                runAsGroup: 0
               # Scrape interval
               scrapeInterval: 30s
               # Retention
