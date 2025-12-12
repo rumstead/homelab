@@ -1,6 +1,6 @@
-<domain type='kvm' id='5'>
-  <name>acemagic-talos-worker</name>
-  <uuid>880d457d-cae4-41b5-a4e2-e5f3344fc128</uuid>
+<domain type='kvm' id='21'>
+  <name>talos-worker</name>
+  <uuid>426276a7-30ac-4752-a8f7-1a37d97e8707</uuid>
   <metadata>
     <libosinfo:libosinfo xmlns:libosinfo="http://libosinfo.org/xmlns/libvirt/domain/1.0">
       <libosinfo:os id="http://libosinfo.org/linux/2024"/>
@@ -16,7 +16,6 @@
     <type arch='x86_64' machine='pc-q35-8.2'>hvm</type>
     <boot dev='cdrom'/>
     <boot dev='hd'/>
-    <bootmenu enable='no'/>
   </os>
   <features>
     <acpi/>
@@ -39,7 +38,7 @@
     <emulator>/usr/bin/qemu-system-x86_64</emulator>
     <disk type='file' device='disk'>
       <driver name='qemu' type='qcow2' discard='unmap'/>
-      <source file='/var/lib/libvirt/images/acemagic-talos-worker.qcow2' index='2'/>
+      <source file='/var/lib/libvirt/images/talos-worker.qcow2' index='2'/>
       <backingStore/>
       <target dev='vda' bus='virtio'/>
       <alias name='virtio-disk0'/>
@@ -47,7 +46,7 @@
     </disk>
     <disk type='file' device='cdrom'>
       <driver name='qemu' type='raw'/>
-      <source file='/var/lib/libvirt/images/metal-amd64.iso' index='1'/>
+      <source file='/tmp/talos-metal-amd64.iso' index='1'/>
       <backingStore/>
       <target dev='sda' bus='sata'/>
       <readonly/>
@@ -153,28 +152,28 @@
       <alias name='virtio-serial0'/>
       <address type='pci' domain='0x0000' bus='0x03' slot='0x00' function='0x0'/>
     </controller>
-    <interface type='network'>
+    <interface type='bridge'>
       <mac address='52:54:00:12:34:57'/>
-      <source network='default' portid='2476284c-5997-4c54-bc10-c3ffe7d76771' bridge='virbr0'/>
-      <target dev='vnet4'/>
+      <source bridge='br0'/>
+      <target dev='vnet20'/>
       <model type='virtio'/>
       <alias name='net0'/>
       <address type='pci' domain='0x0000' bus='0x01' slot='0x00' function='0x0'/>
     </interface>
     <serial type='pty'>
-      <source path='/dev/pts/4'/>
+      <source path='/dev/pts/3'/>
       <target type='isa-serial' port='0'>
         <model name='isa-serial'/>
       </target>
       <alias name='serial0'/>
     </serial>
-    <console type='pty' tty='/dev/pts/4'>
-      <source path='/dev/pts/4'/>
+    <console type='pty' tty='/dev/pts/3'>
+      <source path='/dev/pts/3'/>
       <target type='serial' port='0'/>
       <alias name='serial0'/>
     </console>
     <channel type='unix'>
-      <source mode='bind' path='/run/libvirt/qemu/channel/5-acemagic-talos-worke/org.qemu.guest_agent.0'/>
+      <source mode='bind' path='/run/libvirt/qemu/channel/21-talos-worker/org.qemu.guest_agent.0'/>
       <target type='virtio' name='org.qemu.guest_agent.0' state='disconnected'/>
       <alias name='channel0'/>
       <address type='virtio-serial' controller='0' bus='0' port='1'/>
@@ -220,8 +219,8 @@
     </rng>
   </devices>
   <seclabel type='dynamic' model='apparmor' relabel='yes'>
-    <label>libvirt-880d457d-cae4-41b5-a4e2-e5f3344fc128</label>
-    <imagelabel>libvirt-880d457d-cae4-41b5-a4e2-e5f3344fc128</imagelabel>
+    <label>libvirt-426276a7-30ac-4752-a8f7-1a37d97e8707</label>
+    <imagelabel>libvirt-426276a7-30ac-4752-a8f7-1a37d97e8707</imagelabel>
   </seclabel>
   <seclabel type='dynamic' model='dac' relabel='yes'>
     <label>+64055:+994</label>
