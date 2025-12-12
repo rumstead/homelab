@@ -4,16 +4,21 @@ metadata:
   name: grafana-route
   namespace: monitoring
 spec:
-  parentRefs:
-    - name: homelab-gateway
-      namespace: gateway-api
   hostnames:
     - grafana.acemagic.lab
+  parentRefs:
+    - group: gateway.networking.k8s.io
+      kind: Gateway
+      name: homelab-gateway
+      namespace: gateway-api
   rules:
-    - matches:
+    - backendRefs:
+        - group: ''
+          kind: Service
+          name: kube-prometheus-stack-grafana
+          port: 80
+          weight: 1
+      matches:
         - path:
             type: PathPrefix
             value: /
-      backendRefs:
-        - name: kube-prometheus-stack-grafana
-          port: 80
