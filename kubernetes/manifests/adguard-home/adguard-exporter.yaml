@@ -1,0 +1,92 @@
+apiVersion: v1
+kind: Secret
+metadata:
+  name: adguard-credentials
+  namespace: adguard
+type: Opaque
+stringData:
+  username: "rumstead"
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: adguard-exporter
+  namespace: adguard
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: adguard-exporter
+  template:
+    metadata:
+      labels:
+        app: adguard-exporter
+    spec:
+      containers:
+        - name: adguard-exporter
+          image: ebrianne/adguard-exporter:v1.11.0
+          ports:
+            - containerPort: 9617
+              name: metrics
+          env:
+            - name: ADGUARD_PROTOCOL
+              value: "http"
+            - name: ADGUARD_HOSTNAME
+              value: "adguard-home.adguard.svc.cluster.local"
+            - name: ADGUARD_PORT
+              value: "80"
+            - name: ADGUARD_USERNAME
+              valueFrom:
+                secretKeyRef:
+                  name: adguard-credentials
+                  key: username
+            - name: ADGUARD_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: adguard-credentials
+                  key: password
+            - name: SERVER_PORT
+              value: "9617"
+            - name: INTERVAL
+              value: "10s"
+            - name: LOG_LIMIT
+              value: "10000"
+          resources:
+            requests:
+              memory: 32Mi
+              cpu: 10m
+            limits:
+              memory: 64Mi
+              cpu: 250m
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: adguard-exporter
+  namespace: adguard
+  labels:
+    app: adguard-exporter
+spec:
+  type: ClusterIP
+  selector:
+    app: adguard-exporter
+  ports:
+    - port: 9617
+      targetPort: 9617
+      protocol: TCP
+      name: metrics
+---
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: adguard-exporter
+  namespace: adguard
+  labels:
+    release: kube-prometheus-stack
+spec:
+  selector:
+    matchLabels:
+      app: adguard-exporter
+  endpoints:
+    - port: metrics
+      interval: 30s
