@@ -56,6 +56,11 @@ spec:
                 runAsNonRoot: false
                 runAsUser: 0
                 runAsGroup: 0
+              # Allow ServiceMonitor discovery across all namespaces
+              serviceMonitorNamespaceSelector: {}
+              serviceMonitorSelector:
+                matchLabels:
+                  release: kube-prometheus-stack
               # Scrape interval
               scrapeInterval: 30s
               # Retention
