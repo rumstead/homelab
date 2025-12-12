@@ -24,7 +24,7 @@ spec:
     spec:
       containers:
         - name: adguard-exporter
-          image: ebrianne/adguard-exporter:v1.14.0
+          image: ebrianne/adguard-exporter:v1.14
           ports:
             - containerPort: 9617
               name: metrics
