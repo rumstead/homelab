@@ -16,6 +16,15 @@ spec:
             enabled: true
             service:
               type: ClusterIP
+            # Security context for Talos compatibility
+            securityContext:
+              runAsNonRoot: true
+              runAsUser: 472
+              runAsGroup: 472
+              fsGroup: 472
+              fsGroupChangePolicy: OnRootMismatch
+            initChownData:
+              enabled: false
             # Enable persistence for dashboards
             persistence:
               enabled: true
@@ -26,6 +35,16 @@ spec:
                 type: prometheus
                 url: http://kube-prometheus-stack-prometheus:9090
                 isDefault: false
+            # Enable sidecar for dashboard provisioning from ConfigMaps
+            sidecar:
+              dashboards:
+                enabled: true
+                label: grafana_dashboard
+                labelValue: "1"
+                folder: /tmp/dashboards
+                searchNamespace: monitoring
+                provider:
+                  foldersFromFilesStructure: true
           
           # Prometheus config
           prometheus:
