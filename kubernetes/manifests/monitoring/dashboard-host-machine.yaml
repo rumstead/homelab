@@ -280,13 +280,108 @@ data:
                 "type": "prometheus",
                 "uid": "${datasource}"
               },
-              "expr": "node_hwmon_temp_celsius{instance=\"ubuntu-host\"}",
+              "expr": "avg(node_hwmon_temp_celsius{instance=\"ubuntu-host\"})",
               "refId": "A",
-              "legendFormat": "{{chip}} {{sensor}}"
+              "legendFormat": "Temperature"
             }
           ],
           "title": "Host Temperature",
           "type": "gauge"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          },
+          "fieldConfig": {
+            "defaults": {
+              "color": {
+                "mode": "palette-classic"
+              },
+              "custom": {
+                "axisCenteredZero": false,
+                "axisColorMode": "text",
+                "axisLabel": "",
+                "axisPlacement": "auto",
+                "barAlignment": 0,
+                "drawStyle": "line",
+                "fillOpacity": 20,
+                "gradientMode": "none",
+                "hideFrom": {
+                  "tooltip": false,
+                  "viz": false,
+                  "legend": false
+                },
+                "lineInterpolation": "smooth",
+                "lineWidth": 2,
+                "pointSize": 5,
+                "scaleDistribution": {
+                  "type": "linear"
+                },
+                "showPoints": "never",
+                "spanNulls": false,
+                "stacking": {
+                  "group": "A",
+                  "mode": "none"
+                },
+                "thresholdsStyle": {
+                  "mode": "line"
+                }
+              },
+              "mappings": [],
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  {
+                    "color": "green",
+                    "value": null
+                  },
+                  {
+                    "color": "yellow",
+                    "value": 60
+                  },
+                  {
+                    "color": "red",
+                    "value": 80
+                  }
+                ]
+              },
+              "unit": "celsius"
+            },
+            "overrides": []
+          },
+          "gridPos": {
+            "h": 8,
+            "w": 24,
+            "x": 0,
+            "y": 6
+          },
+          "id": 11,
+          "options": {
+            "legend": {
+              "calcs": ["mean", "max", "lastNotNull"],
+              "displayMode": "table",
+              "placement": "right",
+              "showLegend": true
+            },
+            "tooltip": {
+              "mode": "multi",
+              "sort": "desc"
+            }
+          },
+          "targets": [
+            {
+              "datasource": {
+                "type": "prometheus",
+                "uid": "${datasource}"
+              },
+              "expr": "node_hwmon_temp_celsius{instance=\"ubuntu-host\"}",
+              "refId": "A",
+              "legendFormat": "{{chip}} - {{sensor}}"
+            }
+          ],
+          "title": "Host Temperature Over Time",
+          "type": "timeseries"
         },
         {
           "datasource": {
@@ -329,36 +424,109 @@ data:
                 }
               },
               "mappings": [],
+              "max": 100,
+              "min": 0,
               "thresholds": {
                 "mode": "absolute",
                 "steps": [
                   {
                     "color": "green",
                     "value": null
+                  },
+                  {
+                    "color": "yellow",
+                    "value": 70
+                  },
+                  {
+                    "color": "red",
+                    "value": 90
                   }
                 ]
               },
               "unit": "percent"
             },
-            "overrides": []
+            "overrides": [
+              {
+                "matcher": {
+                  "id": "byName",
+                  "options": "idle"
+                },
+                "properties": [
+                  {
+                    "id": "color",
+                    "value": {
+                      "fixedColor": "light-blue",
+                      "mode": "fixed"
+                    }
+                  }
+                ]
+              },
+              {
+                "matcher": {
+                  "id": "byName",
+                  "options": "system"
+                },
+                "properties": [
+                  {
+                    "id": "color",
+                    "value": {
+                      "fixedColor": "red",
+                      "mode": "fixed"
+                    }
+                  }
+                ]
+              },
+              {
+                "matcher": {
+                  "id": "byName",
+                  "options": "user"
+                },
+                "properties": [
+                  {
+                    "id": "color",
+                    "value": {
+                      "fixedColor": "green",
+                      "mode": "fixed"
+                    }
+                  }
+                ]
+              },
+              {
+                "matcher": {
+                  "id": "byName",
+                  "options": "iowait"
+                },
+                "properties": [
+                  {
+                    "id": "color",
+                    "value": {
+                      "fixedColor": "orange",
+                      "mode": "fixed"
+                    }
+                  }
+                ]
+              }
+            ]
           },
           "gridPos": {
             "h": 8,
             "w": 12,
             "x": 0,
-            "y": 6
+            "y": 14
           },
           "id": 5,
           "options": {
             "legend": {
-              "calcs": ["mean"],
+              "calcs": ["mean", "max", "lastNotNull"],
               "displayMode": "table",
               "placement": "right",
-              "showLegend": true
+              "showLegend": true,
+              "sortBy": "Mean",
+              "sortDesc": true
             },
             "tooltip": {
               "mode": "multi",
-              "sort": "none"
+              "sort": "desc"
             }
           },
           "targets": [
@@ -372,7 +540,7 @@ data:
               "legendFormat": "{{mode}}"
             }
           ],
-          "title": "Host CPU Usage by Mode",
+          "title": "Host CPU Usage by Mode (% of Total)",
           "type": "timeseries"
         },
         {
@@ -392,15 +560,15 @@ data:
                 "axisPlacement": "auto",
                 "barAlignment": 0,
                 "drawStyle": "line",
-                "fillOpacity": 20,
-                "gradientMode": "none",
+                "fillOpacity": 30,
+                "gradientMode": "opacity",
                 "hideFrom": {
                   "tooltip": false,
                   "viz": false,
                   "legend": false
                 },
-                "lineInterpolation": "linear",
-                "lineWidth": 1,
+                "lineInterpolation": "smooth",
+                "lineWidth": 2,
                 "pointSize": 5,
                 "scaleDistribution": {
                   "type": "linear"
@@ -422,30 +590,112 @@ data:
                   {
                     "color": "green",
                     "value": null
+                  },
+                  {
+                    "color": "yellow",
+                    "value": 70
+                  },
+                  {
+                    "color": "red",
+                    "value": 90
                   }
                 ]
               },
               "unit": "bytes"
             },
-            "overrides": []
+            "overrides": [
+              {
+                "matcher": {
+                  "id": "byName",
+                  "options": "Total"
+                },
+                "properties": [
+                  {
+                    "id": "color",
+                    "value": {
+                      "fixedColor": "blue",
+                      "mode": "fixed"
+                    }
+                  },
+                  {
+                    "id": "custom.fillOpacity",
+                    "value": 0
+                  },
+                  {
+                    "id": "custom.lineStyle",
+                    "value": {
+                      "dash": [10, 10],
+                      "fill": "dash"
+                    }
+                  }
+                ]
+              },
+              {
+                "matcher": {
+                  "id": "byName",
+                  "options": "Used"
+                },
+                "properties": [
+                  {
+                    "id": "color",
+                    "value": {
+                      "fixedColor": "red",
+                      "mode": "fixed"
+                    }
+                  }
+                ]
+              },
+              {
+                "matcher": {
+                  "id": "byName",
+                  "options": "Buffers"
+                },
+                "properties": [
+                  {
+                    "id": "color",
+                    "value": {
+                      "fixedColor": "yellow",
+                      "mode": "fixed"
+                    }
+                  }
+                ]
+              },
+              {
+                "matcher": {
+                  "id": "byName",
+                  "options": "Cached"
+                },
+                "properties": [
+                  {
+                    "id": "color",
+                    "value": {
+                      "fixedColor": "green",
+                      "mode": "fixed"
+                    }
+                  }
+                ]
+              }
+            ]
           },
           "gridPos": {
             "h": 8,
             "w": 12,
             "x": 12,
-            "y": 6
+            "y": 14
           },
           "id": 6,
           "options": {
             "legend": {
-              "calcs": ["lastNotNull"],
+              "calcs": ["mean", "max", "lastNotNull"],
               "displayMode": "table",
               "placement": "right",
-              "showLegend": true
+              "showLegend": true,
+              "sortBy": "Last *",
+              "sortDesc": true
             },
             "tooltip": {
               "mode": "multi",
-              "sort": "none"
+              "sort": "desc"
             }
           },
           "targets": [
@@ -463,9 +713,9 @@ data:
                 "type": "prometheus",
                 "uid": "${datasource}"
               },
-              "expr": "node_memory_MemAvailable_bytes{instance=\"ubuntu-host\"}",
+              "expr": "node_memory_MemTotal_bytes{instance=\"ubuntu-host\"} - node_memory_MemAvailable_bytes{instance=\"ubuntu-host\"}",
               "refId": "B",
-              "legendFormat": "Available"
+              "legendFormat": "Used"
             },
             {
               "datasource": {
@@ -486,7 +736,7 @@ data:
               "legendFormat": "Cached"
             }
           ],
-          "title": "Host Memory Breakdown",
+          "title": "Host Memory Usage Over Time",
           "type": "timeseries"
         },
         {
@@ -546,20 +796,22 @@ data:
           "gridPos": {
             "h": 8,
             "w": 12,
-            "x": 0,
-            "y": 14
+            "x": 12,
+            "y": 30
           },
           "id": 7,
           "options": {
             "legend": {
-              "calcs": ["mean", "lastNotNull"],
+              "calcs": ["mean", "max", "lastNotNull"],
               "displayMode": "table",
               "placement": "right",
-              "showLegend": true
+              "showLegend": true,
+              "sortBy": "Mean",
+              "sortDesc": true
             },
             "tooltip": {
               "mode": "multi",
-              "sort": "none"
+              "sort": "desc"
             }
           },
           "targets": [
@@ -642,20 +894,22 @@ data:
           "gridPos": {
             "h": 8,
             "w": 12,
-            "x": 12,
-            "y": 14
+            "x": 0,
+            "y": 38
           },
           "id": 8,
           "options": {
             "legend": {
-              "calcs": ["mean"],
+              "calcs": ["mean", "max", "lastNotNull"],
               "displayMode": "table",
               "placement": "right",
-              "showLegend": true
+              "showLegend": true,
+              "sortBy": "Mean",
+              "sortDesc": true
             },
             "tooltip": {
               "mode": "multi",
-              "sort": "none"
+              "sort": "desc"
             }
           },
           "targets": [
@@ -698,15 +952,15 @@ data:
                 "axisPlacement": "auto",
                 "barAlignment": 0,
                 "drawStyle": "line",
-                "fillOpacity": 10,
-                "gradientMode": "none",
+                "fillOpacity": 30,
+                "gradientMode": "opacity",
                 "hideFrom": {
                   "tooltip": false,
                   "viz": false,
                   "legend": false
                 },
-                "lineInterpolation": "linear",
-                "lineWidth": 1,
+                "lineInterpolation": "smooth",
+                "lineWidth": 2,
                 "pointSize": 5,
                 "scaleDistribution": {
                   "type": "linear"
@@ -728,6 +982,14 @@ data:
                   {
                     "color": "green",
                     "value": null
+                  },
+                  {
+                    "color": "yellow",
+                    "value": 80
+                  },
+                  {
+                    "color": "red",
+                    "value": 95
                   }
                 ]
               },
@@ -744,14 +1006,16 @@ data:
           "id": 9,
           "options": {
             "legend": {
-              "calcs": ["lastNotNull"],
+              "calcs": ["mean", "max", "lastNotNull"],
               "displayMode": "table",
               "placement": "right",
-              "showLegend": true
+              "showLegend": true,
+              "sortBy": "Last *",
+              "sortDesc": true
             },
             "tooltip": {
               "mode": "multi",
-              "sort": "none"
+              "sort": "desc"
             }
           },
           "targets": [
@@ -760,21 +1024,120 @@ data:
                 "type": "prometheus",
                 "uid": "${datasource}"
               },
-              "expr": "node_filesystem_size_bytes{instance=\"ubuntu-host\",fstype!=\"tmpfs\"}",
+              "expr": "node_filesystem_size_bytes{instance=\"ubuntu-host\",fstype!~\"tmpfs|fuse.*\"}",
               "refId": "A",
-              "legendFormat": "{{mountpoint}} - Total"
+              "legendFormat": "{{mountpoint}} ({{fstype}}) - Max"
             },
             {
               "datasource": {
                 "type": "prometheus",
                 "uid": "${datasource}"
               },
-              "expr": "node_filesystem_avail_bytes{instance=\"ubuntu-host\",fstype!=\"tmpfs\"}",
+              "expr": "node_filesystem_size_bytes{instance=\"ubuntu-host\",fstype!~\"tmpfs|fuse.*\"} - node_filesystem_avail_bytes{instance=\"ubuntu-host\",fstype!~\"tmpfs|fuse.*\"}",
               "refId": "B",
-              "legendFormat": "{{mountpoint}} - Available"
+              "legendFormat": "{{mountpoint}} ({{fstype}}) - Used"
             }
           ],
-          "title": "Host Filesystem Usage",
+          "title": "Host Filesystem Usage (Used vs Max)",
+          "type": "timeseries"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          },
+          "fieldConfig": {
+            "defaults": {
+              "color": {
+                "mode": "palette-classic"
+              },
+              "custom": {
+                "axisCenteredZero": false,
+                "axisColorMode": "text",
+                "axisLabel": "",
+                "axisPlacement": "auto",
+                "barAlignment": 0,
+                "drawStyle": "line",
+                "fillOpacity": 20,
+                "gradientMode": "opacity",
+                "hideFrom": {
+                  "tooltip": false,
+                  "viz": false,
+                  "legend": false
+                },
+                "lineInterpolation": "smooth",
+                "lineWidth": 2,
+                "pointSize": 5,
+                "scaleDistribution": {
+                  "type": "linear"
+                },
+                "showPoints": "never",
+                "spanNulls": false,
+                "stacking": {
+                  "group": "A",
+                  "mode": "none"
+                },
+                "thresholdsStyle": {
+                  "mode": "line"
+                }
+              },
+              "mappings": [],
+              "max": 100,
+              "min": 0,
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  {
+                    "color": "green",
+                    "value": null
+                  },
+                  {
+                    "color": "yellow",
+                    "value": 80
+                  },
+                  {
+                    "color": "red",
+                    "value": 95
+                  }
+                ]
+              },
+              "unit": "percent"
+            },
+            "overrides": []
+          },
+          "gridPos": {
+            "h": 8,
+            "w": 12,
+            "x": 12,
+            "y": 22
+          },
+          "id": 12,
+          "options": {
+            "legend": {
+              "calcs": ["mean", "max", "lastNotNull"],
+              "displayMode": "table",
+              "placement": "right",
+              "showLegend": true,
+              "sortBy": "Last *",
+              "sortDesc": true
+            },
+            "tooltip": {
+              "mode": "multi",
+              "sort": "desc"
+            }
+          },
+          "targets": [
+            {
+              "datasource": {
+                "type": "prometheus",
+                "uid": "${datasource}"
+              },
+              "expr": "100 - ((node_filesystem_avail_bytes{instance=\"ubuntu-host\",fstype!~\"tmpfs|fuse.*\"} * 100) / node_filesystem_size_bytes{instance=\"ubuntu-host\",fstype!~\"tmpfs|fuse.*\"})",
+              "refId": "A",
+              "legendFormat": "{{mountpoint}} ({{fstype}})"
+            }
+          ],
+          "title": "Host Filesystem Usage (%)",
           "type": "timeseries"
         },
         {
@@ -834,8 +1197,8 @@ data:
           "gridPos": {
             "h": 8,
             "w": 12,
-            "x": 12,
-            "y": 22
+            "x": 0,
+            "y": 30
           },
           "id": 10,
           "options": {
