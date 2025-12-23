@@ -12,7 +12,7 @@ CLUSTER_NAME="acemagic-talos"
 CONTROL_PLANE_IP="192.168.1.10"
 WORKER_IP="192.168.1.11"
 KUBERNETES_VERSION="1.34.2"
-TALOS_VERSION="v1.10.8"
+TALOS_VERSION="v1.12.0"
 
 echo "Generating Talos configuration..."
 echo "Cluster: $CLUSTER_NAME"
