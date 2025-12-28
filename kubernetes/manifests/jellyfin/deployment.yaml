@@ -36,7 +36,6 @@ spec:
               mountPath: /cache
             - name: media
               mountPath: /media
-              readOnly: true
             - name: dri
               mountPath: /dev/dri
       volumes:
@@ -47,9 +46,8 @@ spec:
           persistentVolumeClaim:
             claimName: jellyfin-cache
         - name: media
-          hostPath:
-            path: /srv/media
-            type: Directory
+          persistentVolumeClaim:
+            claimName: jellyfin-media
         - name: dri
           hostPath:
             path: /dev/dri
