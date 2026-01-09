@@ -14,9 +14,6 @@ spec:
         - name: storageClass.defaultClass
           value: "true"
       valuesObject:
-        storageClass:
-          reclaimPolicy: Retain
-          volumeBindingMode: WaitForFirstConsumer
         nodePathMap:
           - node: talos-controlplane
             paths:
