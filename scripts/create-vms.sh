@@ -169,9 +169,23 @@ virt-install \
     --graphics vnc \
     --console pty,target_type=serial \
     --boot hd,cdrom \
-    --filesystem "driver=path,source=$PERSISTENT_HOST_PATH/node-$CONTROLPLANE_NAME,target=$PERSISTENT_MOUNT_PATH" \
+    --memorybacking access_mode=shared \
     --noautoconsole
 
+echo "Converting filesystem to virtiofs for Control Plane..."
+virsh shutdown "$CONTROLPLANE_NAME" 2>/dev/null || true
+sleep 2
+
+# Add virtiofs filesystem to VM XML
+virsh attach-device "$CONTROLPLANE_NAME" --file /dev/stdin --config <<EOF
+<filesystem type='mount' accessmode='passthrough'>
+  <driver type='virtiofs' queue='1024'/>
+  <source dir='$PERSISTENT_HOST_PATH/node-$CONTROLPLANE_NAME'/>
+  <target dir='persistent'/>
+</filesystem>
+EOF
+
+virsh start "$CONTROLPLANE_NAME"
 echo "✓ Control Plane VM created!"
 echo ""
 echo "Creating Worker VM (with GPU passthrough)..."
@@ -189,10 +203,24 @@ virt-install \
     --graphics vnc \
     --console pty,target_type=serial \
     --boot hd,cdrom \
-    --filesystem "driver=path,source=$PERSISTENT_HOST_PATH/node-$WORKER_NAME,target=$PERSISTENT_MOUNT_PATH" \
+    --memorybacking access_mode=shared \
     --hostdev "$GPU_PCI" \
     --noautoconsole
 
+echo "Converting filesystem to virtiofs for Worker..."
+virsh shutdown "$WORKER_NAME" 2>/dev/null || true
+sleep 2
+
+# Add virtiofs filesystem to VM XML
+virsh attach-device "$WORKER_NAME" --file /dev/stdin --config <<EOF
+<filesystem type='mount' accessmode='passthrough'>
+  <driver type='virtiofs' queue='1024'/>
+  <source dir='$PERSISTENT_HOST_PATH/node-$WORKER_NAME'/>
+  <target dir='persistent'/>
+</filesystem>
+EOF
+
+virsh start "$WORKER_NAME"
 echo "✓ Worker VM created!"
 echo ""
 echo "================================================"
