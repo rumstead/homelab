@@ -14,10 +14,19 @@ spec:
         - name: storageClass.defaultClass
           value: "true"
       valuesObject:
+        storageClass:
+          reclaimPolicy: Retain
+          volumeBindingMode: WaitForFirstConsumer
         nodePathMap:
+          - node: talos-controlplane
+            paths:
+              - /mnt/persistent/local-path-provisioner
+          - node: talos-worker
+            paths:
+              - /mnt/persistent/local-path-provisioner
           - node: DEFAULT_PATH_FOR_NON_LISTED_NODES
             paths:
-              - /var/local-path-provisioner
+              - /mnt/persistent/local-path-provisioner
   destination:
     server: https://kubernetes.default.svc
     namespace: kube-system

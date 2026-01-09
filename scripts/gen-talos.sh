@@ -14,6 +14,9 @@ WORKER_IP="192.168.1.11"
 KUBERNETES_VERSION="1.34.2"
 TALOS_VERSION="v1.12.0"
 
+# Persistent storage configuration (must match create-vms.sh)
+PERSISTENT_MOUNT_PATH="${PERSISTENT_MOUNT_PATH:-/mnt/persistent}"
+
 echo "Generating Talos configuration..."
 echo "Cluster: $CLUSTER_NAME"
 echo "Control Plane IP: $CONTROL_PLANE_IP"
@@ -74,6 +77,12 @@ talosctl machineconfig patch "$TALOS_DIR/worker.yaml" \
 # Generate cluster.yaml for reference
 cat > "$TALOS_DIR/cluster.yaml" << EOF
 # Talos cluster configuration
+# 
+# Persistent Storage Configuration:
+# - Persistent volumes are stored at: ${PERSISTENT_MOUNT_PATH}/local-path-provisioner
+# - This path is mounted from the host and survives VM and host reboots
+# - Local path provisioner should be configured to use this path
+#
 apiVersion: talos.dev/v1alpha1
 kind: Cluster
 metadata:
@@ -95,6 +104,10 @@ echo "Generated files:"
 echo "  - $TALOS_DIR/controlplane.yaml (Control Plane)"
 echo "  - $TALOS_DIR/worker.yaml (Worker)"
 echo "  - $TALOS_DIR/cluster.yaml (Cluster config reference)"
+echo ""
+echo "Persistent storage configuration:"
+echo "  - Guest mount point: $PERSISTENT_MOUNT_PATH"
+echo "  - Local path provisioner should use: $PERSISTENT_MOUNT_PATH/local-path-provisioner"
 echo ""
 echo "Next steps:"
 echo "  1. Review the generated configs"

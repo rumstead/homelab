@@ -45,6 +45,8 @@ if [ ! -f "$TALOS_DIR/controlplane.yaml" ] || [ ! -f "$TALOS_DIR/worker.yaml" ];
 fi
 
 # Apply machine configurations
+# Note: Using --mode=reboot to apply configuration changes with VM reboot
+# Persistent storage mounted from host survives the reboot cycle
 echo "Applying machine configuration to control plane..."
 export TALOSCONFIG="$TALOSCONFIG_PATH"
 talosctl apply-config --insecure --nodes "$CONTROLPLANE_IP" --mode=reboot --file "$TALOS_DIR/controlplane.yaml"
