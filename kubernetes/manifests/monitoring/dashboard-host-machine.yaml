@@ -490,14 +490,37 @@ data:
           "fieldConfig": {
             "defaults": {
               "color": {
-                "mode": "thresholds"
+                "mode": "palette-classic"
               },
               "custom": {
-                "align": "auto",
-                "cellOptions": {
-                  "type": "auto"
+                "axisCenteredZero": false,
+                "axisColorMode": "text",
+                "axisLabel": "",
+                "axisPlacement": "auto",
+                "barAlignment": 0,
+                "drawStyle": "line",
+                "fillOpacity": 10,
+                "gradientMode": "none",
+                "hideFrom": {
+                  "tooltip": false,
+                  "viz": false,
+                  "legend": false
                 },
-                "inspect": false
+                "lineInterpolation": "smooth",
+                "lineWidth": 2,
+                "pointSize": 5,
+                "scaleDistribution": {
+                  "type": "linear"
+                },
+                "showPoints": "never",
+                "spanNulls": false,
+                "stacking": {
+                  "group": "A",
+                  "mode": "none"
+                },
+                "thresholdsStyle": {
+                  "mode": "off"
+                }
               },
               "mappings": [],
               "thresholds": {
@@ -519,38 +542,7 @@ data:
               },
               "unit": "percent"
             },
-            "overrides": [
-              {
-                "matcher": {
-                  "id": "byName",
-                  "options": "Process"
-                },
-                "properties": [
-                  {
-                    "id": "custom.width",
-                    "value": 300
-                  }
-                ]
-              },
-              {
-                "matcher": {
-                  "id": "byName",
-                  "options": "CPU %"
-                },
-                "properties": [
-                  {
-                    "id": "custom.width",
-                    "value": 100
-                  },
-                  {
-                    "id": "custom.cellOptions",
-                    "value": {
-                      "type": "color-text"
-                    }
-                  }
-                ]
-              }
-            ]
+            "overrides": []
           },
           "gridPos": {
             "h": 8,
@@ -560,22 +552,19 @@ data:
           },
           "id": 13,
           "options": {
-            "showHeader": true,
-            "cellHeight": "sm",
-            "footer": {
-              "show": false,
-              "reducer": ["sum"],
-              "countRows": false,
-              "fields": ""
+            "legend": {
+              "calcs": ["mean", "max", "lastNotNull"],
+              "displayMode": "table",
+              "placement": "right",
+              "showLegend": true,
+              "sortBy": "Max",
+              "sortDesc": true
             },
-            "sortBy": [
-              {
-                "displayName": "CPU %",
-                "desc": true
-              }
-            ]
+            "tooltip": {
+              "mode": "multi",
+              "sort": "desc"
+            }
           },
-          "pluginVersion": "9.0.0",
           "targets": [
             {
               "datasource": {
@@ -584,31 +573,11 @@ data:
               },
               "expr": "topk(10, rate(namedprocess_namegroup_cpu_seconds_total{instance=\"ubuntu-host\"}[5m]) * 100)",
               "refId": "A",
-              "legendFormat": "{{groupname}}",
-              "format": "table",
-              "instant": true
+              "legendFormat": "{{groupname}}"
             }
           ],
-          "title": "Top 10 Processes by CPU Usage",
-          "type": "table",
-          "transformations": [
-            {
-              "id": "organize",
-              "options": {
-                "excludeByName": {
-                  "Time": true,
-                  "instance": true,
-                  "job": true,
-                  "__name__": true
-                },
-                "indexByName": {},
-                "renameByName": {
-                  "groupname": "Process",
-                  "Value": "CPU %"
-                }
-              }
-            }
-          ]
+          "title": "Top Processes by CPU Usage (%)",
+          "type": "timeseries"
         },
         {
           "datasource": {
@@ -618,14 +587,37 @@ data:
           "fieldConfig": {
             "defaults": {
               "color": {
-                "mode": "thresholds"
+                "mode": "palette-classic"
               },
               "custom": {
-                "align": "auto",
-                "cellOptions": {
-                  "type": "auto"
+                "axisCenteredZero": false,
+                "axisColorMode": "text",
+                "axisLabel": "",
+                "axisPlacement": "auto",
+                "barAlignment": 0,
+                "drawStyle": "line",
+                "fillOpacity": 10,
+                "gradientMode": "none",
+                "hideFrom": {
+                  "tooltip": false,
+                  "viz": false,
+                  "legend": false
                 },
-                "inspect": false
+                "lineInterpolation": "smooth",
+                "lineWidth": 2,
+                "pointSize": 5,
+                "scaleDistribution": {
+                  "type": "linear"
+                },
+                "showPoints": "never",
+                "spanNulls": false,
+                "stacking": {
+                  "group": "A",
+                  "mode": "none"
+                },
+                "thresholdsStyle": {
+                  "mode": "off"
+                }
               },
               "mappings": [],
               "thresholds": {
@@ -647,38 +639,7 @@ data:
               },
               "unit": "bytes"
             },
-            "overrides": [
-              {
-                "matcher": {
-                  "id": "byName",
-                  "options": "Process"
-                },
-                "properties": [
-                  {
-                    "id": "custom.width",
-                    "value": 300
-                  }
-                ]
-              },
-              {
-                "matcher": {
-                  "id": "byName",
-                  "options": "Memory"
-                },
-                "properties": [
-                  {
-                    "id": "custom.width",
-                    "value": 120
-                  },
-                  {
-                    "id": "custom.cellOptions",
-                    "value": {
-                      "type": "color-text"
-                    }
-                  }
-                ]
-              }
-            ]
+            "overrides": []
           },
           "gridPos": {
             "h": 8,
@@ -688,22 +649,19 @@ data:
           },
           "id": 14,
           "options": {
-            "showHeader": true,
-            "cellHeight": "sm",
-            "footer": {
-              "show": false,
-              "reducer": ["sum"],
-              "countRows": false,
-              "fields": ""
+            "legend": {
+              "calcs": ["mean", "max", "lastNotNull"],
+              "displayMode": "table",
+              "placement": "right",
+              "showLegend": true,
+              "sortBy": "Last *",
+              "sortDesc": true
             },
-            "sortBy": [
-              {
-                "displayName": "Memory",
-                "desc": true
-              }
-            ]
+            "tooltip": {
+              "mode": "multi",
+              "sort": "desc"
+            }
           },
-          "pluginVersion": "9.0.0",
           "targets": [
             {
               "datasource": {
@@ -712,32 +670,11 @@ data:
               },
               "expr": "topk(10, namedprocess_namegroup_memory_bytes{instance=\"ubuntu-host\",memtype=\"resident\"})",
               "refId": "A",
-              "legendFormat": "{{groupname}}",
-              "format": "table",
-              "instant": true
+              "legendFormat": "{{groupname}}"
             }
           ],
-          "title": "Top 10 Processes by Memory Usage",
-          "type": "table",
-          "transformations": [
-            {
-              "id": "organize",
-              "options": {
-                "excludeByName": {
-                  "Time": true,
-                  "instance": true,
-                  "job": true,
-                  "__name__": true,
-                  "memtype": true
-                },
-                "indexByName": {},
-                "renameByName": {
-                  "groupname": "Process",
-                  "Value": "Memory"
-                }
-              }
-            }
-          ]
+          "title": "Top Processes by Memory Usage",
+          "type": "timeseries"
         },
         {
           "datasource": {
