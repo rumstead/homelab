@@ -80,6 +80,11 @@ spec:
                     - targets: ['192.168.1.234:9100']
                       labels:
                         instance: 'ubuntu-host'
+                - job_name: 'host-process-exporter'
+                  static_configs:
+                    - targets: ['192.168.1.234:9256']
+                      labels:
+                        instance: 'ubuntu-host'
           
           # AlertManager - disable for now
           alertmanager:
