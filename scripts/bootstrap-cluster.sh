@@ -38,7 +38,7 @@ if [ ! -f "$TALOSCONFIG_PATH" ]; then
 fi
 
 # Check if machine configs exist
-if [ ! -f "$TALOS_DIR/controlplane.yaml" ] || [ ! -f "$TALOS_DIR/worker.yaml" ]; then
+if [ ! -f "$TALOS_DIR/controlplane.yaml" ]  || [ ! -f "$TALOS_DIR/worker.yaml" ]; then
     echo "ERROR: Machine configs not found in $TALOS_DIR"
     echo "Run: ./scripts/gen-talos.sh"
     exit 1
@@ -51,19 +51,19 @@ fi
 echo "Applying machine configuration to control plane..."
 export TALOSCONFIG="$TALOSCONFIG_PATH"
 
-echo "Note: Applying configs with static IP settings (192.168.1.245 and 192.168.1.222)"
-echo "VMs will configure their network interfaces after receiving the configs."
+echo "Note: Applying configs - Talos will install to disk and reboot"
 echo ""
 
-talosctl apply-config --insecure --nodes "$CONTROLPLANE_IP" --mode=reboot --file "$TALOS_DIR/controlplane.yaml"
+echo "Installing Talos to control plane disk..."
+talosctl apply-config --insecure --nodes "$CONTROLPLANE_IP" --file "$TALOS_DIR/controlplane.yaml"
 
-echo "Applying machine configuration to worker..."
-talosctl apply-config --insecure --nodes "$WORKER_IP" --mode=reboot --file "$TALOS_DIR/worker.yaml"
+echo "Installing Talos to worker disk..."
+talosctl apply-config --insecure --nodes "$WORKER_IP" --file "$TALOS_DIR/worker.yaml"
 
 echo ""
-echo "Waiting for nodes to apply configuration and reboot..."
-echo "This may take 2-3 minutes..."
-sleep 60
+echo "Waiting for Talos to install to disk and nodes to reboot..."
+echo "This may take 3-5 minutes..."
+sleep 180
 
 # Check if VMs are running and start them if needed
 echo "Checking VM states..."

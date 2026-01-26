@@ -12,7 +12,7 @@ CLUSTER_NAME="acemagic-talos"
 CONTROL_PLANE_IP="192.168.1.245"
 WORKER_IP="192.168.1.222"
 KUBERNETES_VERSION="1.34.2"
-TALOS_VERSION="v1.12.0"
+TALOS_VERSION="v1.12.2"
 
 # Persistent storage configuration (must match create-vms.sh)
 PERSISTENT_MOUNT_PATH="${PERSISTENT_MOUNT_PATH:-/var/lib/persistent}"
@@ -58,45 +58,23 @@ cp "$TEMP_DIR/talosconfig" "$HOME/.talos/config" 2>/dev/null || true
 talosctl config endpoint "$CONTROL_PLANE_IP"
 talosctl config node "$CONTROL_PLANE_IP"
 
-# Extract control plane config
-cp "$TEMP_DIR/controlplane.yaml" "$TALOS_DIR/controlplane.yaml"
-
-# Extract worker config
-cp "$TEMP_DIR/worker.yaml" "$TALOS_DIR/worker.yaml"
-
-# Patch control plane config with static IP
-echo "Adding static IP configuration to control plane..."
-cat >> "$TALOS_DIR/controlplane.yaml" << 'NETEOF'
+# Create patch to fix install disk for virtio
+echo "Creating install disk patch for virtio..."
+cat > "$TEMP_DIR/install-patch.yaml" << INSTALLEOF
 machine:
-  network:
-    interfaces:
-      - interface: eth0
-        addresses:
-          - 192.168.1.245/24
-        routes:
-          - network: 0.0.0.0/0
-            gateway: 192.168.1.1
-    nameservers:
-      - 192.168.1.1
-      - 8.8.8.8
-NETEOF
+  install:
+    disk: /dev/vda
+INSTALLEOF
 
-# Patch worker config with static IP
-echo "Adding static IP configuration to worker..."
-cat >> "$TALOS_DIR/worker.yaml" << 'NETEOF'
-machine:
-  network:
-    interfaces:
-      - interface: eth0
-        addresses:
-          - 192.168.1.222/24
-        routes:
-          - network: 0.0.0.0/0
-            gateway: 192.168.1.1
-    nameservers:
-      - 192.168.1.1
-      - 8.8.8.8
-NETEOF
+# Apply install disk patch to both configs
+echo "Applying install disk patch..."
+talosctl machineconfig patch "$TEMP_DIR/controlplane.yaml" \
+    --patch @"$TEMP_DIR/install-patch.yaml" \
+    --output "$TALOS_DIR/controlplane.yaml"
+
+talosctl machineconfig patch "$TEMP_DIR/worker.yaml" \
+    --patch @"$TEMP_DIR/install-patch.yaml" \
+    --output "$TALOS_DIR/worker.yaml"
 
 # Generate cluster.yaml for reference
 cat > "$TALOS_DIR/cluster.yaml" << EOF
@@ -130,27 +108,19 @@ echo "  - $TALOS_DIR/worker.yaml (Worker)"
 echo "  - $TALOS_DIR/cluster.yaml (Cluster config reference)"
 echo ""
 echo "Network configuration:"
-echo "  - Control Plane: 192.168.1.245/24 (static)"
-echo "  - Worker: 192.168.1.222/24 (static)"
+echo "  - Using DHCP (router assigns static IPs via MAC reservation)"
+echo "  - Control Plane: 192.168.1.245 (via DHCP reservation for MAC 52:54:00:12:34:10)"
+echo "  - Worker: 192.168.1.222 (via DHCP reservation for MAC 52:54:00:12:34:11)"
 echo "  - Gateway: 192.168.1.1"
 echo ""
 echo "Persistent storage configuration:"
-echo "  - Persistent disk device: /dev/vdb"
+echo "  - Persistent disk device: /dev/vdb (attached but not yet mounted)"
 echo "  - Guest mount point: $PERSISTENT_MOUNT_PATH"
 echo "  - Local path provisioner should use: $PERSISTENT_MOUNT_PATH/local-path-provisioner"
-echo ""
-echo "IMPORTANT: Add disk mount to machine configs before bootstrapping:"
-echo "  Edit controlplane.yaml and worker.yaml to add under 'machine:':"
-echo ""
-echo "  machine:"
-echo "    disks:"
-echo "      - device: /dev/vdb"
-echo "        partitions:"
-echo "          - mountpoint: $PERSISTENT_MOUNT_PATH"
+echo "  ⚠ Disk mount will be added after cluster bootstrap using add-persistent-disk-mount.sh"
 echo ""
 echo "Next steps:"
 echo "  1. Review the generated configs"
-echo "  2. Add disk mount configuration (see above)"
-echo "  3. Run: sudo ./scripts/create-vms.sh"
-echo "  4. Run: ./scripts/bootstrap-cluster.sh"
-
+echo "  2. Run: sudo ./scripts/create-vms.sh"
+echo "  3. Run: ./scripts/bootstrap-cluster.sh"
+echo "  4. After cluster is up, run: ./scripts/add-persistent-disk-mount.sh"
