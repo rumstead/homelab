@@ -64,6 +64,40 @@ cp "$TEMP_DIR/controlplane.yaml" "$TALOS_DIR/controlplane.yaml"
 # Extract worker config
 cp "$TEMP_DIR/worker.yaml" "$TALOS_DIR/worker.yaml"
 
+# Patch control plane config with static IP
+echo "Adding static IP configuration to control plane..."
+cat >> "$TALOS_DIR/controlplane.yaml" << 'NETEOF'
+machine:
+  network:
+    interfaces:
+      - interface: eth0
+        addresses:
+          - 192.168.1.10/24
+        routes:
+          - network: 0.0.0.0/0
+            gateway: 192.168.1.1
+    nameservers:
+      - 192.168.1.1
+      - 8.8.8.8
+NETEOF
+
+# Patch worker config with static IP
+echo "Adding static IP configuration to worker..."
+cat >> "$TALOS_DIR/worker.yaml" << 'NETEOF'
+machine:
+  network:
+    interfaces:
+      - interface: eth0
+        addresses:
+          - 192.168.1.11/24
+        routes:
+          - network: 0.0.0.0/0
+            gateway: 192.168.1.1
+    nameservers:
+      - 192.168.1.1
+      - 8.8.8.8
+NETEOF
+
 # Generate cluster.yaml for reference
 cat > "$TALOS_DIR/cluster.yaml" << EOF
 # Talos cluster configuration
@@ -94,6 +128,11 @@ echo "Generated files:"
 echo "  - $TALOS_DIR/controlplane.yaml (Control Plane)"
 echo "  - $TALOS_DIR/worker.yaml (Worker)"
 echo "  - $TALOS_DIR/cluster.yaml (Cluster config reference)"
+echo ""
+echo "Network configuration:"
+echo "  - Control Plane: 192.168.1.10/24 (static)"
+echo "  - Worker: 192.168.1.11/24 (static)"
+echo "  - Gateway: 192.168.1.1"
 echo ""
 echo "Persistent storage configuration:"
 echo "  - Persistent disk device: /dev/vdb"

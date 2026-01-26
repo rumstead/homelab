@@ -106,41 +106,12 @@ if [ "$WORKER_STATE" = "shut off" ]; then
     sleep 10
 fi
 
-# Detect actual VM IP addresses
-echo "Detecting VM IP addresses..."
-echo "Waiting for DHCP leases (30 seconds)..."
-sleep 30
+echo ""
+echo "Waiting for nodes to boot with static IPs (60 seconds)..."
+sleep 60
 
 echo ""
-echo "Checking control plane IP..."
-CP_IP_DETECTED=$(sudo virsh domifaddr talos-controlplane 2>/dev/null | grep -oP '(\d+\.){3}\d+' | head -n1 || echo "")
-if [ -n "$CP_IP_DETECTED" ]; then
-    echo "  Detected: $CP_IP_DETECTED"
-    if [ "$CP_IP_DETECTED" != "$CONTROLPLANE_IP" ]; then
-        echo "  WARNING: Detected IP differs from expected ($CONTROLPLANE_IP)"
-        echo "  Using detected IP: $CP_IP_DETECTED"
-        CONTROLPLANE_IP="$CP_IP_DETECTED"
-    fi
-else
-    echo "  WARNING: Could not detect IP, using configured: $CONTROLPLANE_IP"
-fi
-
-echo ""
-echo "Checking worker IP..."
-WORKER_IP_DETECTED=$(sudo virsh domifaddr talos-worker 2>/dev/null | grep -oP '(\d+\.){3}\d+' | head -n1 || echo "")
-if [ -n "$WORKER_IP_DETECTED" ]; then
-    echo "  Detected: $WORKER_IP_DETECTED"
-    if [ "$WORKER_IP_DETECTED" != "$WORKER_IP" ]; then
-        echo "  WARNING: Detected IP differs from expected ($WORKER_IP)"
-        echo "  Using detected IP: $WORKER_IP_DETECTED"
-        WORKER_IP="$WORKER_IP_DETECTED"
-    fi
-else
-    echo "  WARNING: Could not detect IP, using configured: $WORKER_IP"
-fi
-
-echo ""
-echo "Using IPs:"
+echo "Using static IPs (configured in machine configs):"
 echo "  Control Plane: $CONTROLPLANE_IP"
 echo "  Worker: $WORKER_IP"
 echo ""
