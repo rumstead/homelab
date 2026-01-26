@@ -8,8 +8,8 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_DIR="$(dirname "$SCRIPT_DIR")"
 TALOS_DIR="$PROJECT_DIR/talos"
 
-CONTROLPLANE_IP="${CONTROLPLANE_IP:-192.168.1.10}"
-WORKER_IP="${WORKER_IP:-192.168.1.11}"
+CONTROLPLANE_IP="${CONTROLPLANE_IP:-192.168.122.10}"
+WORKER_IP="${WORKER_IP:-192.168.122.11}"
 TALOSCONFIG_PATH="${TALOSCONFIG:-$HOME/.talos/config}"
 
 echo "================================================"
@@ -49,6 +49,36 @@ fi
 # Persistent storage mounted from host survives the reboot cycle
 echo "Applying machine configuration to control plane..."
 export TALOSCONFIG="$TALOSCONFIG_PATH"
+
+# First check if nodes are reachable
+echo "Checking if control plane is reachable at $CONTROLPLANE_IP..."
+if ! ping -c 1 -W 2 "$CONTROLPLANE_IP" &>/dev/null; then
+    echo "ERROR: Cannot reach control plane at $CONTROLPLANE_IP"
+    echo ""
+    echo "Troubleshooting steps:"
+    echo "1. Check if VMs are running:"
+    echo "   sudo virsh list --all"
+    echo ""
+    echo "2. Check VM IP addresses:"
+    echo "   sudo virsh domifaddr talos-controlplane"
+    echo "   sudo virsh domifaddr talos-worker"
+    echo ""
+    echo "3. Check bridge network:"
+    echo "   ip link show br0"
+    echo "   bridge link show"
+    echo ""
+    echo "4. If VMs have no IP, check if they booted correctly:"
+    echo "   sudo virsh console talos-controlplane"
+    echo ""
+    exit 1
+fi
+
+echo "Checking if worker is reachable at $WORKER_IP..."
+if ! ping -c 1 -W 2 "$WORKER_IP" &>/dev/null; then
+    echo "WARNING: Cannot reach worker at $WORKER_IP"
+    echo "Continuing anyway, but worker might not join..."
+fi
+
 talosctl apply-config --insecure --nodes "$CONTROLPLANE_IP" --mode=reboot --file "$TALOS_DIR/controlplane.yaml"
 
 echo "Applying machine configuration to worker..."
@@ -59,13 +89,69 @@ echo "Waiting for nodes to apply configuration and reboot..."
 echo "This may take 2-3 minutes..."
 sleep 60
 
+# Check if VMs are running and start them if needed
+echo "Checking VM states..."
+CP_STATE=$(sudo virsh domstate talos-controlplane 2>/dev/null || echo "not-found")
+WORKER_STATE=$(sudo virsh domstate talos-worker 2>/dev/null || echo "not-found")
+
+if [ "$CP_STATE" = "shut off" ]; then
+    echo "Starting control plane VM..."
+    sudo virsh start talos-controlplane
+    sleep 10
+fi
+
+if [ "$WORKER_STATE" = "shut off" ]; then
+    echo "Starting worker VM..."
+    sudo virsh start talos-worker
+    sleep 10
+fi
+
+# Detect actual VM IP addresses
+echo "Detecting VM IP addresses..."
+echo "Waiting for DHCP leases (30 seconds)..."
+sleep 30
+
+echo ""
+echo "Checking control plane IP..."
+CP_IP_DETECTED=$(sudo virsh domifaddr talos-controlplane 2>/dev/null | grep -oP '(\d+\.){3}\d+' | head -n1 || echo "")
+if [ -n "$CP_IP_DETECTED" ]; then
+    echo "  Detected: $CP_IP_DETECTED"
+    if [ "$CP_IP_DETECTED" != "$CONTROLPLANE_IP" ]; then
+        echo "  WARNING: Detected IP differs from expected ($CONTROLPLANE_IP)"
+        echo "  Using detected IP: $CP_IP_DETECTED"
+        CONTROLPLANE_IP="$CP_IP_DETECTED"
+    fi
+else
+    echo "  WARNING: Could not detect IP, using configured: $CONTROLPLANE_IP"
+fi
+
+echo ""
+echo "Checking worker IP..."
+WORKER_IP_DETECTED=$(sudo virsh domifaddr talos-worker 2>/dev/null | grep -oP '(\d+\.){3}\d+' | head -n1 || echo "")
+if [ -n "$WORKER_IP_DETECTED" ]; then
+    echo "  Detected: $WORKER_IP_DETECTED"
+    if [ "$WORKER_IP_DETECTED" != "$WORKER_IP" ]; then
+        echo "  WARNING: Detected IP differs from expected ($WORKER_IP)"
+        echo "  Using detected IP: $WORKER_IP_DETECTED"
+        WORKER_IP="$WORKER_IP_DETECTED"
+    fi
+else
+    echo "  WARNING: Could not detect IP, using configured: $WORKER_IP"
+fi
+
+echo ""
+echo "Using IPs:"
+echo "  Control Plane: $CONTROLPLANE_IP"
+echo "  Worker: $WORKER_IP"
+echo ""
+
 # Wait for nodes to be ready
 echo "Waiting for control plane node to be ready..."
 RETRIES=0
 MAX_RETRIES=120
 
 while [ $RETRIES -lt $MAX_RETRIES ]; do
-    if talosctl -n "$CONTROLPLANE_IP" service etcd status &>/dev/null 2>&1; then
+    if talosctl -n "$CONTROLPLANE_IP" service etcd status &>/dev/null; then
         echo "✓ Control plane is ready!"
         break
     fi
@@ -73,7 +159,7 @@ while [ $RETRIES -lt $MAX_RETRIES ]; do
         echo "  Waiting... ($((RETRIES+1))/$MAX_RETRIES)"
     fi
     sleep 5
-    ((RETRIES++))
+    RETRIES=$((RETRIES + 1))
 done
 
 if [ $RETRIES -eq $MAX_RETRIES ]; then
@@ -115,7 +201,7 @@ while [ $RETRIES -lt $MAX_RETRIES ]; do
     fi
     echo "  Waiting... ($((RETRIES+1))/$MAX_RETRIES)"
     sleep 5
-    ((RETRIES++))
+    RETRIES=$((RETRIES + 1))
 done
 
 if [ $RETRIES -eq $MAX_RETRIES ]; then
@@ -139,7 +225,7 @@ while [ $RETRIES -lt $MAX_RETRIES ]; do
     fi
     echo "  Waiting... ($((RETRIES+1))/$MAX_RETRIES)"
     sleep 5
-    ((RETRIES++))
+    RETRIES=$((RETRIES + 1))
 done
 
 if [ $RETRIES -eq $MAX_RETRIES ]; then
@@ -164,7 +250,7 @@ while [ $RETRIES -lt $MAX_RETRIES ]; do
     fi
     echo "  Waiting for nodes... ($((RETRIES+1))/$MAX_RETRIES)"
     sleep 5
-    ((RETRIES++))
+    RETRIES=$((RETRIES + 1))
 done
 
 echo ""

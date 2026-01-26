@@ -4,13 +4,12 @@
 
 set -e
 
-TALOS_VERSION="v1.12.0"
+TALOS_VERSION="v1.12.2"
 ISO_URL="https://github.com/siderolabs/talos/releases/download/${TALOS_VERSION}/metal-amd64.iso"
 ISO_PATH="/tmp/talos-metal-amd64.iso"
 
 LIBVIRT_POOL_PATH="/var/lib/libvirt/images"
-BRIDGE_NAME="br0"
-PHYSICAL_INTERFACE="enp2s0"
+NETWORK_NAME="default"
 
 CONTROLPLANE_NAME="talos-controlplane"
 WORKER_NAME="talos-worker"
@@ -30,6 +29,8 @@ echo ""
 echo "VMs to create:"
 echo "  - $CONTROLPLANE_NAME (2 CPU, 5GB RAM, 10GB disk)"
 echo "  - $WORKER_NAME (6 CPU, 10GB RAM, 150GB disk, GPU passthrough)"
+echo ""
+echo "Network: NAT (libvirt default network - 192.168.122.x)"
 echo ""
 echo "Persistent storage:"
 echo "  - Host path: $PERSISTENT_HOST_PATH"
@@ -127,26 +128,16 @@ if ! systemctl is-active --quiet libvirtd; then
     systemctl start libvirtd
 fi
 
-# Create bridge network if it doesn't exist
-echo "Checking bridge network..."
-if ! ip link show "$BRIDGE_NAME" &>/dev/null; then
-    echo "Creating bridge $BRIDGE_NAME..."
-    ip link add name "$BRIDGE_NAME" type bridge
-    ip link set "$PHYSICAL_INTERFACE" master "$BRIDGE_NAME"
-    
-    # Transfer IP from physical interface to bridge
-    PHYS_IP=$(ip -4 addr show "$PHYSICAL_INTERFACE" | grep -oP '(?<=inet\s)\d+(\.\d+){3}/\d+' || true)
-    if [ -n "$PHYS_IP" ]; then
-        ip addr del "$PHYS_IP" dev "$PHYSICAL_INTERFACE" || true
-        ip addr add "$PHYS_IP" dev "$BRIDGE_NAME"
-    fi
-    
-    ip link set "$BRIDGE_NAME" up
-    ip link set "$PHYSICAL_INTERFACE" up
-    
-    echo "Bridge created and configured"
-else
-    echo "Bridge $BRIDGE_NAME already exists"
+# Ensure default NAT network is active
+echo "Checking libvirt default network..."
+if ! virsh net-list --name | grep -q "^default$"; then
+    echo "Starting default network..."
+    virsh net-start default
+fi
+
+if ! virsh net-list --name | grep -q "^default$"; then
+    echo "Setting default network to autostart..."
+    virsh net-autostart default
 fi
 
 # Download Talos ISO if not present
@@ -176,33 +167,19 @@ virt-install \
     --vcpus 2 \
     --memory 5120 \
     --disk path="$LIBVIRT_POOL_PATH/$CONTROLPLANE_NAME.qcow2,size=10,format=qcow2,bus=virtio" \
+    --disk path="$PERSISTENT_HOST_PATH/disks/$CONTROLPLANE_NAME-persistent.qcow2,size=50,format=qcow2,bus=virtio" \
     --cdrom "$ISO_PATH" \
     --network bridge="$BRIDGE_NAME",mac=52:54:00:12:34:56,model=virtio \
     --osinfo detect=on,name=linux2024 \
     --graphics vnc \
     --console pty,target_type=serial \
     --boot hd,cdrom \
-    --memorybacking access_mode=shared \
     --noautoconsole
 
-echo "Converting filesystem to virtiofs for Control Plane..."
-virsh shutdown "$CONTROLPLANE_NAME" 2>/dev/null || true
-sleep 2
-
-# Add virtiofs filesystem to VM XML
-virsh attach-device "$CONTROLPLANE_NAME" --file /dev/stdin --config <<EOF
-<filesystem type='mount' accessmode='passthrough'>
-  <driver type='virtiofs' queue='1024'/>
-  <source dir='$PERSISTENT_HOST_PATH/node-$CONTROLPLANE_NAME'/>
-  <target dir='persistent'/>
-</filesystem>
-EOF
-
-virsh start "$CONTROLPLANE_NAME"
 echo "✓ Control Plane VM created!"
 echo ""
 echo "Creating Worker VM (with GPU passthrough)..."
-echo ""
+echo ""network=default
 GPU_PCI="${GPU_PCI:-0000:03:00.0}"
 
 virt-install \
@@ -210,30 +187,16 @@ virt-install \
     --vcpus 6 \
     --memory 10240 \
     --disk path="$LIBVIRT_POOL_PATH/$WORKER_NAME.qcow2,size=150,format=qcow2,bus=virtio" \
+    --disk path="$PERSISTENT_HOST_PATH/disks/$WORKER_NAME-persistent.qcow2,size=100,format=qcow2,bus=virtio" \
     --cdrom "$ISO_PATH" \
-    --network bridge="$BRIDGE_NAME",mac=52:54:00:12:34:57,model=virtio \
+    --network network=default,model=virtio \
     --osinfo detect=on,name=linux2024 \
     --graphics vnc \
     --console pty,target_type=serial \
     --boot hd,cdrom \
-    --memorybacking access_mode=shared \
     --hostdev "$GPU_PCI" \
     --noautoconsole
 
-echo "Converting filesystem to virtiofs for Worker..."
-virsh shutdown "$WORKER_NAME" 2>/dev/null || true
-sleep 2
-
-# Add virtiofs filesystem to VM XML
-virsh attach-device "$WORKER_NAME" --file /dev/stdin --config <<EOF
-<filesystem type='mount' accessmode='passthrough'>
-  <driver type='virtiofs' queue='1024'/>
-  <source dir='$PERSISTENT_HOST_PATH/node-$WORKER_NAME'/>
-  <target dir='persistent'/>
-</filesystem>
-EOF
-
-virsh start "$WORKER_NAME"
 echo "✓ Worker VM created!"
 echo ""
 echo "================================================"
@@ -254,13 +217,19 @@ echo ""
 echo "Expected boot sequence:"
 echo "  1. VMs start with Talos ISO"
 echo "  2. Talos installer boots"
-echo "  3. Once ready, IPs will be assigned (check with 'virsh domifaddr <vm-name>')"
+echo "  3. IPs assigned via NAT network (192.168.122.x range)"
+echo "  4. Check IPs with: sudo virsh domifaddr <vm-name>"
 echo ""
 echo "Persistent storage:"
 echo "  - Persistent disks attached to VMs (vdb)"
 echo "  - Mount at $PERSISTENT_MOUNT_PATH inside VMs via Talos machine config"
 echo "  - Data will survive VM reboots and host reboots"
 echo "  - Configure local-path-provisioner to use $PERSISTENT_MOUNT_PATH/local-path-provisioner"
+echo ""
+echo "Network:"
+echo "  - VMs use libvirt NAT network (safe for remote management)"
+echo "  - IPs will be in 192.168.122.x range"
+echo "  - Use detected IPs in gen-talos.sh script"
 echo ""
 echo "Next step:"
 echo "  Run: ./scripts/bootstrap-cluster.sh"
