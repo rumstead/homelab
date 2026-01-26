@@ -79,8 +79,6 @@ talosctl machineconfig patch "$TEMP_DIR/controlplane.yaml" \
 talosctl machineconfig patch "$TEMP_DIR/worker.yaml" \
     --patch @"$TEMP_DIR/install-patch.yaml" \
     --output "$TALOS_DIR/worker.yaml"
-    --patch @"$TEMP_DIR/install-patch.yaml" \
-    --output "$TALOS_DIR/worker.yaml"
 
 # Generate cluster.yaml for reference
 cat > "$TALOS_DIR/cluster.yaml" << EOF
