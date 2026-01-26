@@ -20,7 +20,7 @@ WORKER_NAME="talos-worker"
 # Set PERSISTENT_MOUNT_PATH to override mount point inside guest VM
 # Set GPU_PCI to avoid interactive prompt (e.g., GPU_PCI=0000:03:00.0)
 PERSISTENT_HOST_PATH="${PERSISTENT_HOST_PATH:-/mnt/persistent}"
-PERSISTENT_MOUNT_PATH="${PERSISTENT_MOUNT_PATH:-/mnt/persistent}"
+PERSISTENT_MOUNT_PATH="${PERSISTENT_MOUNT_PATH:-/var/lib/persistent}"
 GPU_PCI="${GPU_PCI:-}"
 
 echo "================================================"
@@ -97,15 +97,28 @@ else
     echo "✓ Available disk space: ${AVAILABLE_GB}GB"
 fi
 
-# Create persistent directories for each node
-echo "Creating persistent storage directories..."
-mkdir -p "$PERSISTENT_HOST_PATH/node-$CONTROLPLANE_NAME"
-mkdir -p "$PERSISTENT_HOST_PATH/node-$WORKER_NAME"
-chmod 755 "$PERSISTENT_HOST_PATH/node-$CONTROLPLANE_NAME"
-chmod 755 "$PERSISTENT_HOST_PATH/node-$WORKER_NAME"
+# Create persistent disk images for each node
+echo "Creating persistent storage disks..."
+mkdir -p "$PERSISTENT_HOST_PATH/disks"
+chmod 755 "$PERSISTENT_HOST_PATH/disks"
+
+if [ ! -f "$PERSISTENT_HOST_PATH/disks/$CONTROLPLANE_NAME-persistent.qcow2" ]; then
+    echo "Creating persistent disk for $CONTROLPLANE_NAME (50GB)..."
+    qemu-img create -f qcow2 "$PERSISTENT_HOST_PATH/disks/$CONTROLPLANE_NAME-persistent.qcow2" 50G
+else
+    echo "✓ Persistent disk already exists for $CONTROLPLANE_NAME"
+fi
+
+if [ ! -f "$PERSISTENT_HOST_PATH/disks/$WORKER_NAME-persistent.qcow2" ]; then
+    echo "Creating persistent disk for $WORKER_NAME (100GB)..."
+    qemu-img create -f qcow2 "$PERSISTENT_HOST_PATH/disks/$WORKER_NAME-persistent.qcow2" 100G
+else
+    echo "✓ Persistent disk already exists for $WORKER_NAME"
+fi
+
 echo "✓ Created:"
-echo "  - $PERSISTENT_HOST_PATH/node-$CONTROLPLANE_NAME"
-echo "  - $PERSISTENT_HOST_PATH/node-$WORKER_NAME"
+echo "  - $PERSISTENT_HOST_PATH/disks/$CONTROLPLANE_NAME-persistent.qcow2"
+echo "  - $PERSISTENT_HOST_PATH/disks/$WORKER_NAME-persistent.qcow2"
 echo ""
 
 # Check if libvirt is running
@@ -244,7 +257,8 @@ echo "  2. Talos installer boots"
 echo "  3. Once ready, IPs will be assigned (check with 'virsh domifaddr <vm-name>')"
 echo ""
 echo "Persistent storage:"
-echo "  - Host directories mounted at $PERSISTENT_MOUNT_PATH inside VMs"
+echo "  - Persistent disks attached to VMs (vdb)"
+echo "  - Mount at $PERSISTENT_MOUNT_PATH inside VMs via Talos machine config"
 echo "  - Data will survive VM reboots and host reboots"
 echo "  - Configure local-path-provisioner to use $PERSISTENT_MOUNT_PATH/local-path-provisioner"
 echo ""
