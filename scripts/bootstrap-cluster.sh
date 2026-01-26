@@ -8,8 +8,8 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_DIR="$(dirname "$SCRIPT_DIR")"
 TALOS_DIR="$PROJECT_DIR/talos"
 
-CONTROLPLANE_IP="${CONTROLPLANE_IP:-192.168.122.10}"
-WORKER_IP="${WORKER_IP:-192.168.122.11}"
+CONTROLPLANE_IP="${CONTROLPLANE_IP:-192.168.1.10}"
+WORKER_IP="${WORKER_IP:-192.168.1.11}"
 TALOSCONFIG_PATH="${TALOSCONFIG:-$HOME/.talos/config}"
 
 echo "================================================"

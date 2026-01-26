@@ -9,10 +9,15 @@ ISO_URL="https://github.com/siderolabs/talos/releases/download/${TALOS_VERSION}/
 ISO_PATH="/tmp/talos-metal-amd64.iso"
 
 LIBVIRT_POOL_PATH="/var/lib/libvirt/images"
-NETWORK_NAME="default"
+BRIDGE_NAME="br0"
+PHYSICAL_INTERFACE="enp2s0"
 
 CONTROLPLANE_NAME="talos-controlplane"
 WORKER_NAME="talos-worker"
+
+# Fixed MAC addresses for consistent DHCP
+CONTROLPLANE_MAC="52:54:00:12:34:10"
+WORKER_MAC="52:54:00:12:34:11"
 
 # Persistent storage configuration
 # Set PERSISTENT_HOST_PATH to override default location on host
@@ -30,7 +35,9 @@ echo "VMs to create:"
 echo "  - $CONTROLPLANE_NAME (2 CPU, 5GB RAM, 10GB disk)"
 echo "  - $WORKER_NAME (6 CPU, 10GB RAM, 150GB disk, GPU passthrough)"
 echo ""
-echo "Network: NAT (libvirt default network - 192.168.122.x)"
+echo "Network: Bridge (br0 -> $PHYSICAL_INTERFACE - 192.168.1.x)"
+echo "  WARNING: This will create a network bridge and transfer your host IP"
+echo "  Make sure you have physical/console access if SSH gets disrupted"
 echo ""
 echo "Persistent storage:"
 echo "  - Host path: $PERSISTENT_HOST_PATH"
@@ -128,16 +135,33 @@ if ! systemctl is-active --quiet libvirtd; then
     systemctl start libvirtd
 fi
 
-# Ensure default NAT network is active
-echo "Checking libvirt default network..."
-if ! virsh net-list --name | grep -q "^default$"; then
-    echo "Starting default network..."
-    virsh net-start default
-fi
-
-if ! virsh net-list --name | grep -q "^default$"; then
-    echo "Setting default network to autostart..."
-    virsh net-autostart default
+# Create bridge network if it doesn't exist
+echo "Checking bridge network..."
+if ! ip link show "$BRIDGE_NAME" &>/dev/null; then
+    echo "Creating bridge $BRIDGE_NAME..."
+    echo "WARNING: This will modify your network configuration!"
+    echo "Saving current network state..."
+    
+    # Save current IP for restoration if needed
+    PHYS_IP=$(ip -4 addr show "$PHYSICAL_INTERFACE" | grep -oP '(?<=inet\s)\d+(\.\d+){3}/\d+' || true)
+    
+    ip link add name "$BRIDGE_NAME" type bridge
+    ip link set "$PHYSICAL_INTERFACE" master "$BRIDGE_NAME"
+    
+    # Transfer IP from physical interface to bridge
+    if [ -n "$PHYS_IP" ]; then
+        echo "Transferring IP $PHYS_IP from $PHYSICAL_INTERFACE to $BRIDGE_NAME..."
+        ip addr del "$PHYS_IP" dev "$PHYSICAL_INTERFACE" || true
+        ip addr add "$PHYS_IP" dev "$BRIDGE_NAME"
+    fi
+    
+    ip link set "$BRIDGE_NAME" up
+    ip link set "$PHYSICAL_INTERFACE" up
+    
+    echo "✓ Bridge created and configured"
+    echo "  To restore if needed: sudo ip link delete $BRIDGE_NAME && sudo dhclient $PHYSICAL_INTERFACE"
+else
+    echo "✓ Bridge $BRIDGE_NAME already exists"
 fi
 
 # Download Talos ISO if not present
@@ -169,7 +193,7 @@ virt-install \
     --disk path="$LIBVIRT_POOL_PATH/$CONTROLPLANE_NAME.qcow2,size=10,format=qcow2,bus=virtio" \
     --disk path="$PERSISTENT_HOST_PATH/disks/$CONTROLPLANE_NAME-persistent.qcow2,size=50,format=qcow2,bus=virtio" \
     --cdrom "$ISO_PATH" \
-    --network bridge="$BRIDGE_NAME",mac=52:54:00:12:34:56,model=virtio \
+    --network bridge="$BRIDGE_NAME",mac="$CONTROLPLANE_MAC",model=virtio \
     --osinfo detect=on,name=linux2024 \
     --graphics vnc \
     --console pty,target_type=serial \
@@ -179,7 +203,7 @@ virt-install \
 echo "✓ Control Plane VM created!"
 echo ""
 echo "Creating Worker VM (with GPU passthrough)..."
-echo ""network=default
+echo ""
 GPU_PCI="${GPU_PCI:-0000:03:00.0}"
 
 virt-install \
@@ -189,7 +213,7 @@ virt-install \
     --disk path="$LIBVIRT_POOL_PATH/$WORKER_NAME.qcow2,size=150,format=qcow2,bus=virtio" \
     --disk path="$PERSISTENT_HOST_PATH/disks/$WORKER_NAME-persistent.qcow2,size=100,format=qcow2,bus=virtio" \
     --cdrom "$ISO_PATH" \
-    --network network=default,model=virtio \
+    --network bridge="$BRIDGE_NAME",mac="$WORKER_MAC",model=virtio \
     --osinfo detect=on,name=linux2024 \
     --graphics vnc \
     --console pty,target_type=serial \
@@ -217,7 +241,7 @@ echo ""
 echo "Expected boot sequence:"
 echo "  1. VMs start with Talos ISO"
 echo "  2. Talos installer boots"
-echo "  3. IPs assigned via NAT network (192.168.122.x range)"
+echo "  3. IPs assigned via DHCP on LAN (192.168.1.x range)"
 echo "  4. Check IPs with: sudo virsh domifaddr <vm-name>"
 echo ""
 echo "Persistent storage:"
@@ -227,9 +251,14 @@ echo "  - Data will survive VM reboots and host reboots"
 echo "  - Configure local-path-provisioner to use $PERSISTENT_MOUNT_PATH/local-path-provisioner"
 echo ""
 echo "Network:"
-echo "  - VMs use libvirt NAT network (safe for remote management)"
-echo "  - IPs will be in 192.168.122.x range"
-echo "  - Use detected IPs in gen-talos.sh script"
+echo "  - VMs use bridge networking on your LAN"
+echo "  - IPs will be in 192.168.1.x range (assigned by your router)"
+echo "  - Fixed MAC addresses for consistent DHCP leases"
+echo "  - L2 announcements (Cilium) will work across your LAN"
+echo ""
+echo "DHCP Reservations (set these in your router):"
+echo "  - Control Plane: MAC=$CONTROLPLANE_MAC -> IP=192.168.1.10"
+echo "  - Worker: MAC=$WORKER_MAC -> IP=192.168.1.11"
 echo ""
 echo "Next step:"
 echo "  Run: ./scripts/bootstrap-cluster.sh"
