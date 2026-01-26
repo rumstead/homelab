@@ -8,8 +8,8 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_DIR="$(dirname "$SCRIPT_DIR")"
 TALOS_DIR="$PROJECT_DIR/talos"
 
-CONTROLPLANE_IP="${CONTROLPLANE_IP:-192.168.1.10}"
-WORKER_IP="${WORKER_IP:-192.168.1.11}"
+CONTROLPLANE_IP="${CONTROLPLANE_IP:-192.168.1.245}"
+WORKER_IP="${WORKER_IP:-192.168.1.222}"
 TALOSCONFIG_PATH="${TALOSCONFIG:-$HOME/.talos/config}"
 
 echo "================================================"
@@ -47,37 +47,13 @@ fi
 # Apply machine configurations
 # Note: Using --mode=reboot to apply configuration changes with VM reboot
 # Persistent storage mounted from host survives the reboot cycle
+# Note: Using --insecure flag for initial bootstrap (nodes don't have certs yet)
 echo "Applying machine configuration to control plane..."
 export TALOSCONFIG="$TALOSCONFIG_PATH"
 
-# First check if nodes are reachable
-echo "Checking if control plane is reachable at $CONTROLPLANE_IP..."
-if ! ping -c 1 -W 2 "$CONTROLPLANE_IP" &>/dev/null; then
-    echo "ERROR: Cannot reach control plane at $CONTROLPLANE_IP"
-    echo ""
-    echo "Troubleshooting steps:"
-    echo "1. Check if VMs are running:"
-    echo "   sudo virsh list --all"
-    echo ""
-    echo "2. Check VM IP addresses:"
-    echo "   sudo virsh domifaddr talos-controlplane"
-    echo "   sudo virsh domifaddr talos-worker"
-    echo ""
-    echo "3. Check bridge network:"
-    echo "   ip link show br0"
-    echo "   bridge link show"
-    echo ""
-    echo "4. If VMs have no IP, check if they booted correctly:"
-    echo "   sudo virsh console talos-controlplane"
-    echo ""
-    exit 1
-fi
-
-echo "Checking if worker is reachable at $WORKER_IP..."
-if ! ping -c 1 -W 2 "$WORKER_IP" &>/dev/null; then
-    echo "WARNING: Cannot reach worker at $WORKER_IP"
-    echo "Continuing anyway, but worker might not join..."
-fi
+echo "Note: Applying configs with static IP settings (192.168.1.245 and 192.168.1.222)"
+echo "VMs will configure their network interfaces after receiving the configs."
+echo ""
 
 talosctl apply-config --insecure --nodes "$CONTROLPLANE_IP" --mode=reboot --file "$TALOS_DIR/controlplane.yaml"
 

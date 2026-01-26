@@ -9,8 +9,8 @@ PROJECT_DIR="$(dirname "$SCRIPT_DIR")"
 TALOS_DIR="$PROJECT_DIR/talos"
 
 PERSISTENT_MOUNT_PATH="${PERSISTENT_MOUNT_PATH:-/var/lib/persistent}"
-CONTROL_PLANE_IP="192.168.1.10"
-WORKER_IP="192.168.1.11"
+CONTROL_PLANE_IP="192.168.1.245"
+WORKER_IP="192.168.1.222"
 
 echo "================================================"
 echo "Add Persistent Disk Mount to Talos VMs"

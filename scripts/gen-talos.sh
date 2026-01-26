@@ -9,8 +9,8 @@ PROJECT_DIR="$(dirname "$SCRIPT_DIR")"
 TALOS_DIR="$PROJECT_DIR/talos"
 
 CLUSTER_NAME="acemagic-talos"
-CONTROL_PLANE_IP="192.168.1.10"
-WORKER_IP="192.168.1.11"
+CONTROL_PLANE_IP="192.168.1.245"
+WORKER_IP="192.168.1.222"
 KUBERNETES_VERSION="1.34.2"
 TALOS_VERSION="v1.12.0"
 
@@ -72,7 +72,7 @@ machine:
     interfaces:
       - interface: eth0
         addresses:
-          - 192.168.1.10/24
+          - 192.168.1.245/24
         routes:
           - network: 0.0.0.0/0
             gateway: 192.168.1.1
@@ -89,7 +89,7 @@ machine:
     interfaces:
       - interface: eth0
         addresses:
-          - 192.168.1.11/24
+          - 192.168.1.222/24
         routes:
           - network: 0.0.0.0/0
             gateway: 192.168.1.1
@@ -130,8 +130,8 @@ echo "  - $TALOS_DIR/worker.yaml (Worker)"
 echo "  - $TALOS_DIR/cluster.yaml (Cluster config reference)"
 echo ""
 echo "Network configuration:"
-echo "  - Control Plane: 192.168.1.10/24 (static)"
-echo "  - Worker: 192.168.1.11/24 (static)"
+echo "  - Control Plane: 192.168.1.245/24 (static)"
+echo "  - Worker: 192.168.1.222/24 (static)"
 echo "  - Gateway: 192.168.1.1"
 echo ""
 echo "Persistent storage configuration:"
