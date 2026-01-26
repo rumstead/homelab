@@ -58,21 +58,27 @@ cp "$TEMP_DIR/talosconfig" "$HOME/.talos/config" 2>/dev/null || true
 talosctl config endpoint "$CONTROL_PLANE_IP"
 talosctl config node "$CONTROL_PLANE_IP"
 
-# Create patch to fix install disk for virtio
-echo "Creating install disk patch for virtio..."
+# Create patch to fix install disk for virtio and disable default CNI
+echo "Creating patches (install disk + disable Flannel for Cilium)..."
 cat > "$TEMP_DIR/install-patch.yaml" << INSTALLEOF
 machine:
   install:
     disk: /dev/vda
+cluster:
+  network:
+    cni:
+      name: none
 INSTALLEOF
 
-# Apply install disk patch to both configs
-echo "Applying install disk patch..."
+# Apply patches to both configs
+echo "Applying patches..."
 talosctl machineconfig patch "$TEMP_DIR/controlplane.yaml" \
     --patch @"$TEMP_DIR/install-patch.yaml" \
     --output "$TALOS_DIR/controlplane.yaml"
 
 talosctl machineconfig patch "$TEMP_DIR/worker.yaml" \
+    --patch @"$TEMP_DIR/install-patch.yaml" \
+    --output "$TALOS_DIR/worker.yaml"
     --patch @"$TEMP_DIR/install-patch.yaml" \
     --output "$TALOS_DIR/worker.yaml"
 
