@@ -10,9 +10,11 @@ helm upgrade -i cilium cilium/cilium --namespace kube-system --set ipam.mode=kub
 echo "Installing ArgoCD..."
 kubectl apply -k bootstrap/argocd/
 kubectl apply -f kubernetes/argocd-apps/argocd/app-of-apps.yaml 
-kubectl apply -f kubernetes/argocd-apps/argocd/argocd-app.yaml 
+kubectl apply -f kubernetes/argocd-apps/argocd/argocd-app.yaml
 
 ns="argocd"
+kubectl wait --for=condition=available --timeout=600s deployment/argocd-server -n "$ns"
+
 port=8080
 kubectl port-forward -n "$ns" service/argocd-server "$port":80 2>&1 > /dev/null &
 sleep 3
