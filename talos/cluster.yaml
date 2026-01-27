@@ -1,4 +1,10 @@
 # Talos cluster configuration
+# 
+# Persistent Storage Configuration:
+# - Persistent volumes are stored at: /var/lib/persistent/local-path-provisioner
+# - This path is mounted from the host and survives VM and host reboots
+# - Local path provisioner should be configured to use this path
+#
 apiVersion: talos.dev/v1alpha1
 kind: Cluster
 metadata:
@@ -8,6 +14,6 @@ spec:
     endpoint: https://192.168.1.245:6443
   kubernetesVersion: "1.34.2"
   allowSchedulingOnControlPlanes: true
-  talosVersion: "v1.12.0"
+  talosVersion: "v1.12.2"
   network:
     dnsDomain: cluster.local
