@@ -58,50 +58,31 @@ cp "$TEMP_DIR/talosconfig" "$HOME/.talos/config" 2>/dev/null || true
 talosctl config endpoint "$CONTROL_PLANE_IP"
 talosctl config node "$CONTROL_PLANE_IP"
 
-# Create patch to fix install disk for virtio and disable default CNI
-echo "Creating patches (install disk + disable Flannel for Cilium)..."
-cat > "$TEMP_DIR/install-patch.yaml" << INSTALLEOF
+# Create patches (install disk + disable Flannel for Cilium + persistent storage)
+echo "Creating patches..."
+cat > "$TEMP_DIR/machine-patch.yaml" << EOF
 machine:
   install:
     disk: /dev/vda
+  disks:
+    - device: /dev/vdb
+      partitions:
+        - mountpoint: $PERSISTENT_MOUNT_PATH
 cluster:
   network:
     cni:
       name: none
-INSTALLEOF
+EOF
 
 # Apply patches to both configs
 echo "Applying patches..."
 talosctl machineconfig patch "$TEMP_DIR/controlplane.yaml" \
-    --patch @"$TEMP_DIR/install-patch.yaml" \
+    --patch @"$TEMP_DIR/machine-patch.yaml" \
     --output "$TALOS_DIR/controlplane.yaml"
 
 talosctl machineconfig patch "$TEMP_DIR/worker.yaml" \
-    --patch @"$TEMP_DIR/install-patch.yaml" \
+    --patch @"$TEMP_DIR/machine-patch.yaml" \
     --output "$TALOS_DIR/worker.yaml"
-
-# Generate cluster.yaml for reference
-cat > "$TALOS_DIR/cluster.yaml" << EOF
-# Talos cluster configuration
-# 
-# Persistent Storage Configuration:
-# - Persistent volumes are stored at: ${PERSISTENT_MOUNT_PATH}/local-path-provisioner
-# - This path is mounted from the host and survives VM and host reboots
-# - Local path provisioner should be configured to use this path
-#
-apiVersion: talos.dev/v1alpha1
-kind: Cluster
-metadata:
-  name: $CLUSTER_NAME
-spec:
-  controlPlane:
-    endpoint: https://$CONTROL_PLANE_IP:6443
-  kubernetesVersion: "$KUBERNETES_VERSION"
-  allowSchedulingOnControlPlanes: true
-  talosVersion: "$TALOS_VERSION"
-  network:
-    dnsDomain: cluster.local
-EOF
 
 echo ""
 echo "Talos configurations generated successfully!"
@@ -109,7 +90,6 @@ echo ""
 echo "Generated files:"
 echo "  - $TALOS_DIR/controlplane.yaml (Control Plane)"
 echo "  - $TALOS_DIR/worker.yaml (Worker)"
-echo "  - $TALOS_DIR/cluster.yaml (Cluster config reference)"
 echo ""
 echo "Network configuration:"
 echo "  - Using DHCP (router assigns static IPs via MAC reservation)"
@@ -121,10 +101,9 @@ echo "Persistent storage configuration:"
 echo "  - Persistent disk device: /dev/vdb (attached but not yet mounted)"
 echo "  - Guest mount point: $PERSISTENT_MOUNT_PATH"
 echo "  - Local path provisioner should use: $PERSISTENT_MOUNT_PATH/local-path-provisioner"
-echo "  ⚠ Disk mount will be added after cluster bootstrap using add-persistent-disk-mount.sh"
+echo "  Disk mount is included in machine configuration"
 echo ""
 echo "Next steps:"
 echo "  1. Review the generated configs"
 echo "  2. Run: sudo ./scripts/create-vms.sh"
 echo "  3. Run: ./scripts/bootstrap-cluster.sh"
-echo "  4. After cluster is up, run: ./scripts/add-persistent-disk-mount.sh"
