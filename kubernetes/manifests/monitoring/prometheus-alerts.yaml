@@ -1,0 +1,131 @@
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: storage-alerts
+  namespace: monitoring
+  labels:
+    release: kube-prometheus-stack
+spec:
+  groups:
+    - name: storage.rules
+      rules:
+        # Prometheus TSDB volume approaching capacity
+        - alert: PrometheusStorageAlmostFull
+          expr: |
+            (
+              kubelet_volume_stats_used_bytes{persistentvolumeclaim=~"prometheus-.*"}
+              /
+              kubelet_volume_stats_capacity_bytes{persistentvolumeclaim=~"prometheus-.*"}
+            ) > 0.80
+          for: 15m
+          labels:
+            severity: warning
+          annotations:
+            summary: "Prometheus storage is above 80% capacity"
+            description: >-
+              PVC {{ $labels.persistentvolumeclaim }} in namespace {{ $labels.namespace }}
+              is {{ $value | humanizePercentage }} full.
+              Consider reducing retention or deleting old series.
+            runbook: |
+              1. Check current usage: kubectl exec -n monitoring prometheus-kube-prometheus-stack-prometheus-0 -- df -h /prometheus
+              2. Delete old series: curl -X POST http://localhost:9090/api/v1/admin/tsdb/delete_series -d 'match[]={__name__=~".+"}&start=<RFC3339>&end=<RFC3339>'
+              3. Clean tombstones: curl -X POST http://localhost:9090/api/v1/admin/tsdb/clean_tombstones
+
+        # Prometheus TSDB volume critically full
+        - alert: PrometheusStorageCritical
+          expr: |
+            (
+              kubelet_volume_stats_used_bytes{persistentvolumeclaim=~"prometheus-.*"}
+              /
+              kubelet_volume_stats_capacity_bytes{persistentvolumeclaim=~"prometheus-.*"}
+            ) > 0.95
+          for: 5m
+          labels:
+            severity: critical
+          annotations:
+            summary: "Prometheus storage is critically full (>95%)"
+            description: >-
+              PVC {{ $labels.persistentvolumeclaim }} in namespace {{ $labels.namespace }}
+              is {{ $value | humanizePercentage }} full.
+              Immediate action required to prevent data loss.
+            runbook: |
+              1. Delete old series immediately: curl -X POST http://localhost:9090/api/v1/admin/tsdb/delete_series -d 'match[]={__name__=~".+"}&end=<24h-ago-RFC3339>'
+              2. Clean tombstones: curl -X POST http://localhost:9090/api/v1/admin/tsdb/clean_tombstones
+              3. If still full, reduce retention: edit retentionSize in kube-prometheus-stack-app.yaml
+
+        # Any persistent volume filling up
+        - alert: PersistentVolumeFillingUp
+          expr: |
+            (
+              kubelet_volume_stats_used_bytes{job="kubelet"}
+              /
+              kubelet_volume_stats_capacity_bytes{job="kubelet"}
+            ) > 0.85
+          for: 15m
+          labels:
+            severity: warning
+          annotations:
+            summary: "Persistent volume is above 85% capacity"
+            description: >-
+              PVC {{ $labels.persistentvolumeclaim }} in namespace {{ $labels.namespace }}
+              is {{ $value | humanizePercentage }} full.
+
+        # Persistent volume inodes exhaustion
+        - alert: PersistentVolumeInodesFillingUp
+          expr: |
+            (
+              kubelet_volume_stats_inodes_used{job="kubelet"}
+              /
+              kubelet_volume_stats_inodes{job="kubelet"}
+            ) > 0.90
+          for: 15m
+          labels:
+            severity: warning
+          annotations:
+            summary: "Persistent volume inodes are above 90%"
+            description: >-
+              PVC {{ $labels.persistentvolumeclaim }} in namespace {{ $labels.namespace }}
+              has used {{ $value | humanizePercentage }} of its inodes.
+
+    - name: host-storage.rules
+      rules:
+        # Host filesystem filling up (scraped via node-exporter on host)
+        - alert: HostFilesystemAlmostFull
+          expr: |
+            (
+              node_filesystem_avail_bytes{job="host-node-exporter", fstype!~"tmpfs|overlay"}
+              /
+              node_filesystem_size_bytes{job="host-node-exporter", fstype!~"tmpfs|overlay"}
+            ) < 0.15
+          for: 15m
+          labels:
+            severity: warning
+          annotations:
+            summary: "Host filesystem is above 85% capacity"
+            description: >-
+              Filesystem {{ $labels.mountpoint }} on {{ $labels.instance }}
+              has only {{ $value | humanizePercentage }} free space remaining.
+              This may affect VM persistent storage (qcow2 images at /mnt/persistent/disks/).
+            runbook: |
+              1. Check host disk usage: ssh acemagic 'df -h'
+              2. Check qcow2 actual sizes: ssh acemagic 'sudo qemu-img info /mnt/persistent/disks/*.qcow2'
+              3. Clean package cache: ssh acemagic 'sudo apt clean'
+              4. Check large files: ssh acemagic 'sudo du -sh /var/log/* | sort -rh | head'
+
+        # Host filesystem critically full
+        - alert: HostFilesystemCritical
+          expr: |
+            (
+              node_filesystem_avail_bytes{job="host-node-exporter", fstype!~"tmpfs|overlay"}
+              /
+              node_filesystem_size_bytes{job="host-node-exporter", fstype!~"tmpfs|overlay"}
+            ) < 0.05
+          for: 5m
+          labels:
+            severity: critical
+          annotations:
+            summary: "Host filesystem is critically full (>95%)"
+            description: >-
+              Filesystem {{ $labels.mountpoint }} on {{ $labels.instance }}
+              has only {{ $value | humanizePercentage }} free space remaining.
+              VM disk writes may fail imminently.
