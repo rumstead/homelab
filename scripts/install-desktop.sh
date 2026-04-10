@@ -13,7 +13,7 @@ echo ""
 echo "This will install:"
 echo "  - XFCE4 desktop environment (lightweight)"
 echo "  - xrdp for remote desktop access (port 3389)"
-echo "  - Firefox web browser"
+echo "  - Google Chrome web browser"
 echo "  - Basic utilities (file manager, terminal, text editor)"
 echo ""
 
@@ -45,10 +45,16 @@ echo ""
 echo "Installing LightDM display manager..."
 apt-get install -y lightdm lightdm-gtk-greeter
 
-# Install web browser
+# Install Google Chrome
 echo ""
-echo "Installing Firefox..."
-apt-get install -y firefox
+echo "Installing Google Chrome..."
+if ! command -v google-chrome &> /dev/null; then
+    curl -fsSL -o /tmp/google-chrome.deb https://dl.google.com/linux/direct/google-chrome-stable_current_amd64.deb
+    apt-get install -y /tmp/google-chrome.deb
+    rm -f /tmp/google-chrome.deb
+else
+    echo "✓ Google Chrome already installed"
+fi
 
 # Install xrdp for remote desktop
 echo ""
@@ -101,7 +107,7 @@ echo "Enabling services..."
 systemctl enable lightdm
 systemctl enable xrdp
 systemctl restart xrdp
-systemctl restart sshd
+systemctl restart ssh
 
 # Set default target to graphical (so desktop starts on boot)
 systemctl set-default graphical.target
@@ -124,12 +130,12 @@ echo "     - Login with your Linux user credentials"
 echo ""
 echo "  3. REMOTE via SSH X11 forwarding:"
 echo "     - Connect: ssh -X $(logname 2>/dev/null || echo 'user')@192.168.1.234"
-echo "     - Launch apps: firefox &"
+echo "     - Launch apps: google-chrome &"
 echo "     - Note: Requires X11 server on the client side"
 echo ""
 echo "Installed components:"
 echo "  - XFCE4 desktop environment"
 echo "  - LightDM display manager"
-echo "  - Firefox web browser"
+echo "  - Google Chrome web browser"
 echo "  - xrdp (port 3389)"
 echo "  - X11 forwarding enabled in SSH"
