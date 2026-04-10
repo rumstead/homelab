@@ -43,7 +43,6 @@ Use this file as the operational context for repository changes.
   - `talos-controlplane`
   - `talos-worker`
 - Node roles: 1 control plane, 1 worker
-- Host GPU passthrough is configured for the worker VM
 
 ## Key provisioning and bootstrap paths
 
@@ -77,7 +76,6 @@ Use this file as the operational context for repository changes.
 - Worker: 6 vCPU, 10240 MiB RAM, 150GB primary disk + 100GB persistent disk
 - Persistent host path default: `/mnt/persistent`
 - Persistent guest path default: `/var/lib/persistent`
-- Worker GPU passthrough default PCI address: `0000:03:00.0`
 
 ### Talos machine patch behavior
 
@@ -175,6 +173,5 @@ Use this file as the operational context for repository changes.
 ## Live-state checks before declaring success
 
 - Confirm host LAN IP currently used for host scrape targets.
-- Confirm production GPU PCI address for worker passthrough.
 - Confirm host interface naming matches configured bridge parent.
 - Confirm Argo CD application sync and health status in the live cluster.

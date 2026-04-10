@@ -22,10 +22,8 @@ WORKER_MAC="52:54:00:12:34:11"
 # Persistent storage configuration
 # Set PERSISTENT_HOST_PATH to override default location on host
 # Set PERSISTENT_MOUNT_PATH to override mount point inside guest VM
-# Set GPU_PCI to avoid interactive prompt (e.g., GPU_PCI=0000:03:00.0)
 PERSISTENT_HOST_PATH="${PERSISTENT_HOST_PATH:-/mnt/persistent}"
 PERSISTENT_MOUNT_PATH="${PERSISTENT_MOUNT_PATH:-/var/lib/persistent}"
-GPU_PCI="${GPU_PCI:-}"
 
 echo "================================================"
 echo "Talos VM Creation Script (virt-install)"
@@ -33,7 +31,7 @@ echo "================================================"
 echo ""
 echo "VMs to create:"
 echo "  - $CONTROLPLANE_NAME (2 CPU, 5GB RAM, 10GB disk)"
-echo "  - $WORKER_NAME (6 CPU, 10GB RAM, 150GB disk, GPU passthrough)"
+echo "  - $WORKER_NAME (6 CPU, 10GB RAM, 150GB disk)"
 echo ""
 echo "Network: Bridge (br0 -> $PHYSICAL_INTERFACE - 192.168.1.x)"
 echo "  WARNING: This will create a network bridge and transfer your host IP"
@@ -202,9 +200,8 @@ virt-install \
 
 echo "✓ Control Plane VM created!"
 echo ""
-echo "Creating Worker VM (with GPU passthrough)..."
+echo "Creating Worker VM..."
 echo ""
-GPU_PCI="${GPU_PCI:-0000:03:00.0}"
 
 virt-install \
     --name "$WORKER_NAME" \
@@ -218,7 +215,6 @@ virt-install \
     --graphics vnc \
     --console pty,target_type=serial \
     --boot hd,cdrom \
-    --hostdev "$GPU_PCI" \
     --noautoconsole
 
 echo "✓ Worker VM created!"
