@@ -70,12 +70,11 @@ spec:
               retentionSize: "9GB"
               # WAL compression reduces WAL size and speeds recovery after unclean shutdown
               walCompression: true
-              # Disable subPath mount — on Talos, subPath bind mounts resolve against
-              # the ephemeral overlay instead of the persistent vdb1 mount, causing
+              # On Talos, subPath bind mounts resolve against the
+              # ephemeral overlay instead of the persistent vdb1 mount, causing
               # all Prometheus data to be lost on every reboot.
-              disableMountSubPath: true
-              # Storage
               storageSpec:
+                disableMountSubPath: true
                 volumeClaimTemplate:
                   spec:
                     accessModes: ["ReadWriteOnce"]
@@ -100,6 +99,7 @@ spec:
             enabled: true
             alertmanagerSpec:
               storage:
+                disableMountSubPath: true
                 volumeClaimTemplate:
                   spec:
                     accessModes: ["ReadWriteOnce"]
