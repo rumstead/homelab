@@ -1,0 +1,51 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: lifting-data-web
+  namespace: lifting-data
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: lifting-data-web
+  template:
+    metadata:
+      labels:
+        app: lifting-data-web
+    spec:
+      containers:
+        - name: nginx
+          image: nginx:1.27-alpine
+          ports:
+            - containerPort: 80
+          volumeMounts:
+            - name: output
+              mountPath: /usr/share/nginx/html
+            - name: nginx-config
+              mountPath: /etc/nginx/conf.d
+          resources:
+            requests:
+              cpu: 50m
+              memory: 64Mi
+            limits:
+              cpu: 200m
+              memory: 128Mi
+      volumes:
+        - name: output
+          persistentVolumeClaim:
+            claimName: lifting-data-output
+        - name: nginx-config
+          configMap:
+            name: lifting-data-nginx
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: lifting-data-web
+  namespace: lifting-data
+spec:
+  selector:
+    app: lifting-data-web
+  ports:
+    - port: 80
+      targetPort: 80

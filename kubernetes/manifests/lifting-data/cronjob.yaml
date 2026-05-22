@@ -1,0 +1,73 @@
+# Pre-requisite: create the Gmail secret manually once before Argo syncs.
+# This secret is intentionally NOT stored in git.
+#
+# kubectl create secret generic lifting-data-gmail \
+#   --namespace lifting-data \
+#   --from-literal=username=your-gmail@gmail.com \
+#   --from-literal=app_password='your-app-password'
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: lifting-data-ingest
+  namespace: lifting-data
+spec:
+  schedule: "0 * * * *"
+  concurrencyPolicy: Forbid
+  successfulJobsHistoryLimit: 3
+  failedJobsHistoryLimit: 3
+  jobTemplate:
+    spec:
+      template:
+        spec:
+          restartPolicy: OnFailure
+          securityContext:
+            runAsUser: 0
+          initContainers:
+            - name: init-perms
+              image: busybox:1.37
+              command: ["sh", "-c", "chmod 777 /app/data /app/output"]
+              volumeMounts:
+                - name: data
+                  mountPath: /app/data
+                - name: output
+                  mountPath: /app/output
+          containers:
+            - name: ingest
+              image: ghcr.io/rumstead/lifting-data:latest
+              command: ["/bin/sh", "/scripts/ingest-and-plot.sh"]
+              env:
+                - name: GMAIL_USER
+                  valueFrom:
+                    secretKeyRef:
+                      name: lifting-data-gmail
+                      key: username
+                - name: GMAIL_APP_PASSWORD
+                  valueFrom:
+                    secretKeyRef:
+                      name: lifting-data-gmail
+                      key: app_password
+              volumeMounts:
+                - name: data
+                  mountPath: /app/data
+                - name: output
+                  mountPath: /app/output
+                - name: scripts
+                  mountPath: /scripts
+              resources:
+                requests:
+                  cpu: 100m
+                  memory: 256Mi
+                limits:
+                  cpu: 500m
+                  memory: 512Mi
+          volumes:
+            - name: data
+              persistentVolumeClaim:
+                claimName: lifting-data-db
+            - name: output
+              persistentVolumeClaim:
+                claimName: lifting-data-output
+            - name: scripts
+              configMap:
+                name: lifting-data-scripts
+                defaultMode: 0755
