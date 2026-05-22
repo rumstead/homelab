@@ -21,15 +21,7 @@ data:
       --allow-sender "$GMAIL_USER"
 
     echo "[lifting-data] generating charts"
-    python3 -m lifting_data.cli --db "$DB" list-exercises \
-      | sed 's/: [0-9]* sets$//' \
-      | while IFS= read -r exercise; do
-          safe_name=$(echo "$exercise" | tr ' /' '--' | tr '[:upper:]' '[:lower:]')
-          echo "  plotting: $exercise -> ${safe_name}.html"
-          python3 -m lifting_data.cli --db "$DB" plot \
-            --exercise "$exercise" \
-            --output "/app/output/${safe_name}.html" || true
-        done
+    python3 -m lifting_data.cli --db "$DB" plot-all --output /app/output/index.html
 
     echo "[lifting-data] done"
 ---
@@ -46,8 +38,7 @@ data:
         root /usr/share/nginx/html;
 
         location / {
-            autoindex on;
-            autoindex_exact_size off;
-            autoindex_localtime on;
+            index index.html;
+            try_files $uri $uri/ =404;
         }
     }
