@@ -34,6 +34,7 @@ spec:
           containers:
             - name: ingest
               image: ghcr.io/rumstead/lifting-data:latest
+              imagePullPolicy: Always
               command: ["/bin/sh", "/scripts/ingest-and-plot.sh"]
               env:
                 - name: GMAIL_USER
