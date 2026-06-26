@@ -4,7 +4,7 @@
 
 set -e
 
-NODE_EXPORTER_VERSION="1.10.2"
+NODE_EXPORTER_VERSION="1.11.1"
 
 echo "Installing node_exporter ${NODE_EXPORTER_VERSION} on host..."
 

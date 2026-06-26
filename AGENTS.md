@@ -49,6 +49,7 @@ Use this file as the operational context for repository changes.
 - VM creation: [scripts/create-vms.sh](scripts/create-vms.sh)
 - Talos config generation: [scripts/gen-talos.sh](scripts/gen-talos.sh)
 - Cluster bootstrap: [scripts/bootstrap-cluster.sh](scripts/bootstrap-cluster.sh)
+- Talos/Kubernetes in-place upgrade: [scripts/upgrade-cluster.sh](scripts/upgrade-cluster.sh)
 - Optional app bootstrap helper: [scripts/deploy-apps.sh](scripts/deploy-apps.sh)
 - Graceful VM shutdown config: [scripts/configure-libvirt-guests.sh](scripts/configure-libvirt-guests.sh)
 - Prometheus cleanup helper: [scripts/cleanup-prometheus.sh](scripts/cleanup-prometheus.sh)
@@ -58,8 +59,8 @@ Use this file as the operational context for repository changes.
 
 ### Versions
 
-- Talos: `v1.12.6`
-- Kubernetes: `1.35.2`
+- Talos: `v1.13.5`
+- Kubernetes: `1.35.6`
 
 ### Network and node identity
 
@@ -144,13 +145,13 @@ Use this file as the operational context for repository changes.
 ## Monitoring and DNS workloads
 
 - AdGuard Home manifest: [kubernetes/manifests/adguard-home/adguard-home.yaml](kubernetes/manifests/adguard-home/adguard-home.yaml)
-  - Image: `adguard/adguardhome:v0.107.71`
+  - Image: `adguard/adguardhome:v0.107.77`
   - DNS LoadBalancer requested IP: `192.168.1.246`
 - AdGuard exporter manifest: [kubernetes/manifests/adguard-home/adguard-exporter.yaml](kubernetes/manifests/adguard-home/adguard-exporter.yaml)
   - Image: `ebrianne/adguard-exporter:v1.14`
   - Metrics port: `9617`
 - Monitoring stack values: [kubernetes/argocd-apps/monitoring/kube-prometheus-stack-app.yaml](kubernetes/argocd-apps/monitoring/kube-prometheus-stack-app.yaml)
-  - Chart: `80.0.0`
+  - Chart: `87.2.1`
   - Prometheus retention: `7d` (time) / `9GB` (size)
   - Prometheus WAL compression: enabled
   - Prometheus PVC: `10Gi`

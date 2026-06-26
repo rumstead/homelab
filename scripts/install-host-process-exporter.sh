@@ -4,7 +4,7 @@
 
 set -e
 
-PROCESS_EXPORTER_VERSION="0.8.3"
+PROCESS_EXPORTER_VERSION="0.8.7"
 
 echo "Installing process-exporter ${PROCESS_EXPORTER_VERSION} on host..."
 
