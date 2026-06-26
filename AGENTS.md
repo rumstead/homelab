@@ -116,7 +116,7 @@ Use this file as the operational context for repository changes.
 - Cilium L2/LB policy: [kubernetes/manifests/cilium/l2-config.yaml](kubernetes/manifests/cilium/l2-config.yaml)
   - `loadBalancerIPs: true`
   - `externalIPs: true`
-  - LB pool range: `192.168.1.245`-`192.168.1.254`
+  - LB pool range: `192.168.1.246`-`192.168.1.254` (excludes control plane node IP `192.168.1.245`)
 
 ## TLS, DNS, and endpoints
 

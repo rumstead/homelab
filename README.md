@@ -65,4 +65,4 @@ Gateway configuration: [kubernetes/manifests/gateway/homelab-gateway.yaml](kuber
 - Talos version: `v1.13.5`
 - Kubernetes version: `1.35.6`
 - Local-path storage root in nodes: `/var/lib/persistent`
-- Cilium LB IP pool: `192.168.1.245`-`192.168.1.254`
+- Cilium LB IP pool: `192.168.1.246`-`192.168.1.254` (excludes control plane node IP `192.168.1.245`)

@@ -18,5 +18,8 @@ metadata:
   name: homelab-pool
 spec:
   blocks:
-    - start: 192.168.1.245
+    # NOTE: start at .246 — 192.168.1.245 is the control plane node /
+    # kube-apiserver IP and must NOT be handed out to LoadBalancer services,
+    # otherwise Cilium L2 ARP-announces it and hijacks the API server.
+    - start: 192.168.1.246
       stop: 192.168.1.254
