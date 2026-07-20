@@ -4,7 +4,7 @@
 
 set -e
 
-TALOS_VERSION="v1.13.5"
+TALOS_VERSION="v1.13.6"
 ISO_URL="https://github.com/siderolabs/talos/releases/download/${TALOS_VERSION}/metal-amd64.iso"
 ISO_PATH="/tmp/talos-metal-amd64.iso"
 

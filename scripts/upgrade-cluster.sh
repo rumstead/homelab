@@ -9,7 +9,7 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 # Versions to upgrade to. Keep these in sync with scripts/gen-talos.sh
 # and the talos/*.yaml machine configs.
-TALOS_VERSION="${TALOS_VERSION:-v1.13.5}"
+TALOS_VERSION="${TALOS_VERSION:-v1.13.6}"
 KUBERNETES_VERSION="${KUBERNETES_VERSION:-1.35.6}"
 INSTALLER_IMAGE="${INSTALLER_IMAGE:-ghcr.io/siderolabs/installer:${TALOS_VERSION}}"
 

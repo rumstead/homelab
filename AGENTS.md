@@ -59,7 +59,7 @@ Use this file as the operational context for repository changes.
 
 ### Versions
 
-- Talos: `v1.13.5`
+- Talos: `v1.13.6`
 - Kubernetes: `1.35.6`
 
 ### Network and node identity
@@ -145,13 +145,13 @@ Use this file as the operational context for repository changes.
 ## Monitoring and DNS workloads
 
 - AdGuard Home manifest: [kubernetes/manifests/adguard-home/adguard-home.yaml](kubernetes/manifests/adguard-home/adguard-home.yaml)
-  - Image: `adguard/adguardhome:v0.107.77`
+  - Image: `adguard/adguardhome:v0.107.78`
   - DNS LoadBalancer requested IP: `192.168.1.246`
 - AdGuard exporter manifest: [kubernetes/manifests/adguard-home/adguard-exporter.yaml](kubernetes/manifests/adguard-home/adguard-exporter.yaml)
   - Image: `ebrianne/adguard-exporter:v1.14`
   - Metrics port: `9617`
 - Monitoring stack values: [kubernetes/argocd-apps/monitoring/kube-prometheus-stack-app.yaml](kubernetes/argocd-apps/monitoring/kube-prometheus-stack-app.yaml)
-  - Chart: `87.2.1`
+  - Chart: `87.17.0`
   - Prometheus retention: `7d` (time) / `9GB` (size)
   - Prometheus WAL compression: enabled
   - Prometheus PVC: `10Gi`

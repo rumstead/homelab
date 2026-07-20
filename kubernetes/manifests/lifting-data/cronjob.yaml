@@ -25,7 +25,7 @@ spec:
             runAsUser: 0
           initContainers:
             - name: init-perms
-              image: busybox:1.37
+              image: busybox:latest
               command: ["sh", "-c", "chmod 777 /app/data /app/output"]
               volumeMounts:
                 - name: data
