@@ -1,0 +1,25 @@
+{
+  "$schema": "https://docs.renovatebot.com/renovate-schema.json",
+  "extends": ["config:recommended"],
+  "timezone": "America/New_York",
+  "schedule": ["before 6am on monday"],
+  "kubernetes": {
+    "managerFilePatterns": ["/^kubernetes/manifests/.+\\.ya?ml$/"]
+  },
+  "argocd": {
+    "managerFilePatterns": ["/^kubernetes/argocd-apps/.+\\.ya?ml$/"]
+  },
+  "packageRules": [
+    {
+      "matchManagers": ["kubernetes", "argocd"],
+      "groupName": "kubernetes manifests",
+      "commitMessageTopic": "{{depName}}"
+    },
+    {
+      "matchDatasources": ["docker"],
+      "matchUpdateTypes": ["patch", "minor"],
+      "automerge": false
+    }
+  ],
+  "ignorePaths": []
+}
