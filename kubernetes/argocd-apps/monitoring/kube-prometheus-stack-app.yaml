@@ -10,7 +10,7 @@ spec:
   sources:
     - repoURL: https://prometheus-community.github.io/helm-charts
       chart: kube-prometheus-stack
-      targetRevision: 91.4.1
+      targetRevision: 91.8.2
       helm:
         valuesObject:
           # Grafana config
@@ -98,6 +98,9 @@ spec:
           alertmanager:
             enabled: true
             alertmanagerSpec:
+              # Mounted at /etc/alertmanager/secrets/<name>/
+              secrets:
+                - alertmanager-smtp
               storage:
                 disableMountSubPath: true
                 volumeClaimTemplate:
@@ -111,7 +114,7 @@ spec:
                 smtp_smarthost: 'smtp.example.com:587'
                 smtp_from: 'alertmanager@acemagic.lab'
                 smtp_auth_username: 'alerts@example.com'
-                smtp_auth_password: 'changeme'
+                smtp_auth_password_file: /etc/alertmanager/secrets/alertmanager-smtp/password
                 smtp_require_tls: true
               route:
                 group_by: ['alertname', 'namespace']
@@ -139,6 +142,9 @@ spec:
     - repoURL: https://github.com/rumstead/homelab.git
       targetRevision: main
       path: kubernetes/manifests/monitoring
+    - repoURL: https://github.com/rumstead/homelab.git
+      targetRevision: main
+      path: kubernetes/manifests/monitoring/sops
   destination:
     server: https://kubernetes.default.svc
     namespace: monitoring

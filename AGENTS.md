@@ -19,7 +19,7 @@ Keep this managed block so 'openspec update' can refresh the instructions.
 
 # Agent Operating Reference
 
-Last updated: 2026-03-06
+Last updated: 2026-10-02
 
 Use this file as the operational context for repository changes.
 
@@ -59,8 +59,8 @@ Use this file as the operational context for repository changes.
 
 ### Versions
 
-- Talos: `v1.13.6`
-- Kubernetes: `1.35.6`
+- Talos: `v1.14.2`
+- Kubernetes: `1.36.5`
 
 ### Network and node identity
 
@@ -128,6 +128,13 @@ Use this file as the operational context for repository changes.
   - `grafana.acemagic.lab`
   - `adguard.acemagic.lab`
 
+## Secrets (SOPS)
+
+- Never commit plaintext Secrets. Encrypt them as `*.sops.yaml` with `sops encrypt -i <file>`; rules live in [.sops.yaml](.sops.yaml) (age, `data`/`stringData` only).
+- Argo CD decrypts at render time with KSOPS: [bootstrap/argocd/argocd-repo-server-ksops-patch.yaml](bootstrap/argocd/argocd-repo-server-ksops-patch.yaml).
+- A directory with encrypted files needs a `kustomization.yaml` that lists a `ksops-generator.yaml` under `generators`. See [kubernetes/manifests/external-dns](kubernetes/manifests/external-dns).
+- age private key: `~/.config/sops/age/keys.txt` on the host, and the `argocd/sops-age` Secret in the cluster (created by [scripts/deploy-apps.sh](scripts/deploy-apps.sh)). Keep an offline backup; losing it means re-creating every secret.
+
 ## Host desktop environment
 
 - Desktop: XFCE4 (lightweight)
@@ -145,13 +152,13 @@ Use this file as the operational context for repository changes.
 ## Monitoring and DNS workloads
 
 - AdGuard Home manifest: [kubernetes/manifests/adguard-home/adguard-home.yaml](kubernetes/manifests/adguard-home/adguard-home.yaml)
-  - Image: `adguard/adguardhome:v0.107.78`
+  - Image: `adguard/adguardhome:v0.107.79`
   - DNS LoadBalancer requested IP: `192.168.1.246`
 - AdGuard exporter manifest: [kubernetes/manifests/adguard-home/adguard-exporter.yaml](kubernetes/manifests/adguard-home/adguard-exporter.yaml)
   - Image: `ebrianne/adguard-exporter:v1.14`
   - Metrics port: `9617`
 - Monitoring stack values: [kubernetes/argocd-apps/monitoring/kube-prometheus-stack-app.yaml](kubernetes/argocd-apps/monitoring/kube-prometheus-stack-app.yaml)
-  - Chart: `87.17.0`
+  - Chart: `91.8.2`
   - Prometheus retention: `7d` (time) / `9GB` (size)
   - Prometheus WAL compression: enabled
   - Prometheus PVC: `10Gi`

@@ -45,8 +45,10 @@ helmfile.lock
 secrets/
 *secret*
 !*secret*.example
-*.sops.yaml
 .decrypted/
+# SOPS-encrypted files and the SOPS config are meant to be committed
+!*.sops.yaml
+!/.sops.yaml
 
 # SOPS / Age
 *.agekey
