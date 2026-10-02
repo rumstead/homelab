@@ -84,6 +84,7 @@ Use this file as the operational context for repository changes.
 - Secondary disk: `/dev/vdb`
 - Secondary disk mount path: `/var/lib/persistent`
 - CNI is disabled in Talos machine config (`none`) to allow Cilium installation
+- kube-proxy is disabled (`cluster.proxy.disabled: true`); Cilium runs with `kubeProxyReplacement: true`
 
 ## GitOps layout
 
@@ -155,8 +156,8 @@ Use this file as the operational context for repository changes.
   - Image: `adguard/adguardhome:v0.107.79`
   - DNS LoadBalancer requested IP: `192.168.1.246`
 - AdGuard exporter manifest: [kubernetes/manifests/adguard-home/adguard-exporter.yaml](kubernetes/manifests/adguard-home/adguard-exporter.yaml)
-  - Image: `ebrianne/adguard-exporter:v1.14`
-  - Metrics port: `9617`
+  - Image: `ghcr.io/henrywhitaker3/adguard-exporter:v1.2.1`
+  - Metrics port: `9618`
 - Monitoring stack values: [kubernetes/argocd-apps/monitoring/kube-prometheus-stack-app.yaml](kubernetes/argocd-apps/monitoring/kube-prometheus-stack-app.yaml)
   - Chart: `91.8.2`
   - Prometheus retention: `7d` (time) / `9GB` (size)
