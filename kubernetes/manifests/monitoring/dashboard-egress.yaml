@@ -82,7 +82,7 @@ data:
                 "type": "prometheus",
                 "uid": "${datasource}"
               },
-              "expr": "count(count by (source) (increase(hubble_flows_to_world_total{source=~\"$source\"}[$__range]) > 0))",
+              "expr": "count(count by (source) (increase(hubble_flows_to_world_total{source!=\"\",source=~\"$source\"}[$__range]) > 0))",
               "legendFormat": "",
               "refId": "A",
               "instant": true,
@@ -142,7 +142,7 @@ data:
                 "type": "prometheus",
                 "uid": "${datasource}"
               },
-              "expr": "count(count by (destination) (increase(hubble_flows_to_world_total{source=~\"$source\"}[$__range]) > 0))",
+              "expr": "count(count by (destination) (increase(hubble_flows_to_world_total{source!=\"\",source=~\"$source\"}[$__range]) > 0))",
               "legendFormat": "",
               "refId": "A",
               "instant": true,
@@ -202,7 +202,7 @@ data:
                 "type": "prometheus",
                 "uid": "${datasource}"
               },
-              "expr": "sum(increase(hubble_flows_to_world_total{source=~\"$source\"}[$__range]))",
+              "expr": "sum(increase(hubble_flows_to_world_total{source!=\"\",source=~\"$source\"}[$__range]))",
               "legendFormat": "",
               "refId": "A",
               "instant": true,
@@ -262,7 +262,7 @@ data:
                 "type": "prometheus",
                 "uid": "${datasource}"
               },
-              "expr": "sum(increase(hubble_flows_to_world_total{source=~\"$source\",verdict=\"DROPPED\"}[$__range])) or vector(0)",
+              "expr": "sum(increase(hubble_flows_to_world_total{source!=\"\",source=~\"$source\",verdict=\"DROPPED\"}[$__range])) or vector(0)",
               "legendFormat": "",
               "refId": "A",
               "instant": true,
@@ -334,7 +334,7 @@ data:
                 "type": "prometheus",
                 "uid": "${datasource}"
               },
-              "expr": "sum by (source) (rate(hubble_flows_to_world_total{source=~\"$source\"}[5m]))",
+              "expr": "sum by (source) (rate(hubble_flows_to_world_total{source!=\"\",source=~\"$source\"}[5m]))",
               "legendFormat": "{{source}}",
               "refId": "A"
             }
@@ -343,7 +343,7 @@ data:
         {
           "type": "table",
           "title": "Workload to destination",
-          "description": "Every external destination per workload in the selected range. Destination is the DNS name when the Cilium DNS proxy saw the lookup, otherwise the IP",
+          "description": "Every external destination per workload in the selected range. Destination is the DNS name when the Cilium DNS proxy saw the lookup, otherwise the IP. Hubble sees each outbound packet twice (inside the node and on the way out), the second copy has no workload label and is filtered out",
           "id": 8,
           "datasource": {
             "type": "prometheus",
@@ -397,7 +397,7 @@ data:
                 "type": "prometheus",
                 "uid": "${datasource}"
               },
-              "expr": "sort_desc(sum by (source, destination, protocol, port, verdict) (increase(hubble_flows_to_world_total{source=~\"$source\"}[$__range])) > 0)",
+              "expr": "sort_desc(sum by (source, destination, protocol, port, verdict) (increase(hubble_flows_to_world_total{source!=\"\",source=~\"$source\"}[$__range])) > 0)",
               "legendFormat": "",
               "refId": "A",
               "instant": true,
@@ -702,9 +702,9 @@ data:
               "type": "prometheus",
               "uid": "${datasource}"
             },
-            "definition": "label_values(hubble_flows_to_world_total, source)",
+            "definition": "label_values(hubble_flows_to_world_total{source!=\"\"}, source)",
             "query": {
-              "query": "label_values(hubble_flows_to_world_total, source)",
+              "query": "label_values(hubble_flows_to_world_total{source!=\"\"}, source)",
               "refId": "StandardVariableQuery"
             },
             "includeAll": true,
@@ -724,5 +724,5 @@ data:
       },
       "title": "Egress",
       "uid": "hubble-egress",
-      "version": 1
+      "version": 2
     }
