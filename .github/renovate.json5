@@ -1,0 +1,116 @@
+{
+  // Renovate configuration for the homelab GitOps repo.
+  // Covers: Argo CD Application helm chart pins, container image tags in raw
+  // manifests, the Argo CD and metrics-server kustomize remote resources, and
+  // Talos/Kubernetes versions in provisioning scripts.
+  $schema: 'https://docs.renovatebot.com/renovate-schema.json',
+  extends: [
+    'config:recommended',
+    ':dependencyDashboard',
+  ],
+  timezone: 'America/New_York',
+  schedule: ['before 6am on monday'],
+  prConcurrentLimit: 5,
+  labels: ['dependencies'],
+
+  // Argo CD Applications (helm chart targetRevision + git tag pins)
+  argocd: {
+    managerFilePatterns: ['/^kubernetes/argocd-apps/.+\\.ya?ml$/'],
+  },
+
+  // Raw Kubernetes manifests (image: tags)
+  kubernetes: {
+    managerFilePatterns: ['/^kubernetes/manifests/.+\\.ya?ml$/', '/^bootstrap/.+\\.ya?ml$/'],
+  },
+
+  packageRules: [
+    {
+      // Group the remaining non-major manifest bumps into one PR.
+      matchManagers: ['kubernetes', 'argocd'],
+      matchUpdateTypes: ['minor', 'patch', 'digest'],
+      groupName: 'kubernetes manifests',
+    },
+    {
+      // Talos and Kubernetes bumps only change the script pins. The live
+      // cluster is upgraded with scripts/upgrade-cluster.sh.
+      matchPackageNames: ['siderolabs/talos', 'kubernetes/kubernetes'],
+      groupName: 'talos and kubernetes',
+    },
+    {
+      // Minors need a dashboard approval: Kubernetes must stay within the
+      // range tested by the installed Cilium release.
+      matchPackageNames: ['siderolabs/talos', 'kubernetes/kubernetes'],
+      matchUpdateTypes: ['major', 'minor'],
+      dependencyDashboardApproval: true,
+    },
+    {
+      // kube-prometheus-stack majors bump CRDs - require manual review.
+      matchPackageNames: ['kube-prometheus-stack'],
+      matchUpdateTypes: ['major'],
+      dependencyDashboardApproval: true,
+    },
+    {
+      // Gateway API CRDs must stay compatible with the installed Cilium version.
+      matchPackageNames: ['kubernetes-sigs/gateway-api'],
+      matchUpdateTypes: ['major', 'minor'],
+      dependencyDashboardApproval: true,
+    },
+    {
+      // nginx is pinned to the stable minor tag (e.g. 1.30-alpine).
+      matchPackageNames: ['nginx'],
+      matchUpdateTypes: ['major'],
+      dependencyDashboardApproval: true,
+    },
+  ],
+
+  customManagers: [
+    {
+      // Argo CD install.yaml remote resource in the bootstrap kustomization
+      customType: 'regex',
+      managerFilePatterns: ['/^bootstrap/argocd/kustomization\\.yaml$/'],
+      matchStrings: ['https://raw\\.githubusercontent\\.com/argoproj/argo-cd/(?<currentValue>v\\d+\\.\\d+\\.\\d+)/manifests/install\\.yaml'],
+      depNameTemplate: 'argoproj/argo-cd',
+      datasourceTemplate: 'github-releases',
+    },
+    {
+      // TALOS_VERSION="v1.14.2" or TALOS_VERSION="${TALOS_VERSION:-v1.14.2}"
+      customType: 'regex',
+      managerFilePatterns: ['/^scripts/.+\\.sh$/'],
+      matchStrings: ['TALOS_VERSION="(?:\\$\\{TALOS_VERSION:-)?(?<currentValue>v\\d+\\.\\d+\\.\\d+)'],
+      depNameTemplate: 'siderolabs/talos',
+      datasourceTemplate: 'github-releases',
+    },
+    {
+      // KUBERNETES_VERSION="1.36.5", plain or ${VAR:-default} (no leading v)
+      customType: 'regex',
+      managerFilePatterns: ['/^scripts/.+\\.sh$/'],
+      matchStrings: ['KUBERNETES_VERSION="(?:\\$\\{KUBERNETES_VERSION:-)?(?<currentValue>\\d+\\.\\d+\\.\\d+)'],
+      depNameTemplate: 'kubernetes/kubernetes',
+      datasourceTemplate: 'github-releases',
+      extractVersionTemplate: '^v(?<version>.+)$',
+    },
+    {
+      // KSOPS image volume reference on the Argo CD repo-server
+      customType: 'regex',
+      managerFilePatterns: ['/^bootstrap/argocd/.+\\.yaml$/'],
+      matchStrings: ['reference: (?<depName>viaductoss/ksops):(?<currentValue>v\\d+\\.\\d+\\.\\d+)'],
+      datasourceTemplate: 'docker',
+    },
+    {
+      // metrics-server components.yaml release URL in kustomization.yaml
+      customType: 'regex',
+      managerFilePatterns: ['/^kubernetes/manifests/metrics-server/kustomization\\.yaml$/'],
+      matchStrings: ['https://github\\.com/kubernetes-sigs/metrics-server/releases/download/(?<currentValue>v\\d+\\.\\d+\\.\\d+)/components\\.yaml'],
+      depNameTemplate: 'kubernetes-sigs/metrics-server',
+      datasourceTemplate: 'github-releases',
+    },
+    {
+      // external-dns adguard webhook provider image tag in Argo CD app values
+      customType: 'regex',
+      managerFilePatterns: ['/^kubernetes/argocd-apps/external-dns/.+\\.yaml$/'],
+      matchStrings: ['repository: ghcr\\.io/muhlba91/external-dns-provider-adguard\\s+tag: (?<currentValue>v\\d+\\.\\d+\\.\\d+)'],
+      depNameTemplate: 'ghcr.io/muhlba91/external-dns-provider-adguard',
+      datasourceTemplate: 'docker',
+    },
+  ],
+}
