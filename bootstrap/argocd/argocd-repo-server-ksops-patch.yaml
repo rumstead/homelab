@@ -10,16 +10,21 @@ spec:
           env:
             - name: SOPS_AGE_KEY_FILE
               value: /.config/sops/age/keys.txt
+            # ksops is appended last so the image's own kustomize keeps
+            # precedence over the one bundled in the ksops image.
+            - name: PATH
+              value: /usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/opt/ksops/usr/local/bin
           volumeMounts:
             - name: ksops
-              mountPath: /usr/local/bin/ksops
-              subPath: usr/local/bin/ksops
+              mountPath: /opt/ksops
+              readOnly: true
             - name: sops-age
               mountPath: /.config/sops/age
               readOnly: true
       volumes:
         # The ksops image is distroless, so the binary is mounted straight from
-        # the image instead of being copied by an init container.
+        # the image instead of being copied by an init container. containerd
+        # only supports directory subpaths here, so the whole image is mounted.
         - name: ksops
           image:
             reference: viaductoss/ksops:v4.5.1
