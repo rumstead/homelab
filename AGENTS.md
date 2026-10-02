@@ -128,6 +128,7 @@ Use this file as the operational context for repository changes.
   - `argocd.acemagic.lab`
   - `grafana.acemagic.lab`
   - `adguard.acemagic.lab`
+  - `hubble.acemagic.lab` (Hubble UI, no auth)
 
 ## Secrets (SOPS)
 
@@ -149,6 +150,14 @@ Use this file as the operational context for repository changes.
 - Graceful shutdown: `libvirt-guests` service with `ON_SHUTDOWN=shutdown` and 120s timeout
 - Setup script: [scripts/configure-libvirt-guests.sh](scripts/configure-libvirt-guests.sh)
 - VMs autostart after host reboot via libvirt autostart
+
+## Network observability
+
+- Hubble Relay and UI run in `kube-system`; Hubble TLS certificates come from cert-manager (`homelab-ca-issuer`)
+- Hubble metrics (`flows-to-world`, `dns`, `drop`, `flow`, `tcp`, `port-distribution`) are labeled by workload and scraped through ServiceMonitors
+- DNS visibility policy (no enforcement): [kubernetes/manifests/cilium/dns-visibility-policy.yaml](kubernetes/manifests/cilium/dns-visibility-policy.yaml)
+- Egress dashboard: [kubernetes/manifests/monitoring/dashboard-egress.yaml](kubernetes/manifests/monitoring/dashboard-egress.yaml)
+- CLI: `hubble observe` (port-forward relay with `kubectl -n kube-system port-forward svc/hubble-relay 4245:80`)
 
 ## Monitoring and DNS workloads
 
