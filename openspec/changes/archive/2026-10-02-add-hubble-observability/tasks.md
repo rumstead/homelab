@@ -16,9 +16,9 @@
 - [x] 3.2 Update `AGENTS.md` (exposed hostnames, monitoring section)
 
 ## 4. Rollout and verification
-- [ ] 4.1 Merge and confirm all Argo CD applications are Synced and Healthy
-- [ ] 4.2 `hubble observe` through relay shows flows from both nodes
-- [ ] 4.3 `hubble_flows_to_world_total` has series with hostname destinations
-- [ ] 4.4 No new dropped flows (`hubble observe --verdict DROPPED`), LAN DNS and gateway routes still work
-- [ ] 4.5 `hubble.acemagic.lab` resolves and loads the UI
-- [ ] 4.6 Hubble and Egress dashboards render in Grafana
+- [x] 4.1 Merge and confirm all Argo CD applications are Synced and Healthy
+- [x] 4.2 `hubble observe` through relay shows flows from both nodes
+- [x] 4.3 `hubble_flows_to_world_total` has series with hostname destinations
+- [x] 4.4 No new dropped flows (`hubble observe --verdict DROPPED`), LAN DNS and gateway routes still work
+- [x] 4.5 `hubble.acemagic.lab` resolves and loads the UI
+- [x] 4.6 Hubble and Egress dashboards render in Grafana
