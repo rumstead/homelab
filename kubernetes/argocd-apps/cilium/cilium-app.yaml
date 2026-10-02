@@ -73,6 +73,10 @@ spec:
         dashboards:
           enabled: true
           namespace: monitoring
+          # The dashboard JSON is too big for client-side apply's
+          # last-applied annotation
+          annotations:
+            argocd.argoproj.io/sync-options: ServerSideApply=true
         hubble:
           # Must be 2^n - 1
           eventBufferCapacity: "16383"
@@ -103,6 +107,8 @@ spec:
             dashboards:
               enabled: true
               namespace: monitoring
+              annotations:
+                argocd.argoproj.io/sync-options: ServerSideApply=true
   destination:
     server: https://kubernetes.default.svc
     namespace: kube-system
