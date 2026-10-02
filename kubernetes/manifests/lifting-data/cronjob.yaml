@@ -1,10 +1,4 @@
-# Pre-requisite: create the Gmail secret manually once before Argo syncs.
-# This secret is intentionally NOT stored in git.
-#
-# kubectl create secret generic lifting-data-gmail \
-#   --namespace lifting-data \
-#   --from-literal=username=your-gmail@gmail.com \
-#   --from-literal=app_password='your-app-password'
+# Gmail credentials come from lifting-data-gmail.sops.yaml (edit with `sops`).
 apiVersion: batch/v1
 kind: CronJob
 metadata:
@@ -25,7 +19,7 @@ spec:
             runAsUser: 0
           initContainers:
             - name: init-perms
-              image: busybox:latest
+              image: busybox:1.38.0
               command: ["sh", "-c", "chmod 777 /app/data /app/output"]
               volumeMounts:
                 - name: data

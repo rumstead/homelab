@@ -4,3 +4,5 @@ metadata:
   name: argocd-cm
 data:
   timeout.reconciliation: "5h"
+  # Required for the KSOPS exec KRM function that decrypts *.sops.yaml secrets.
+  kustomize.buildOptions: "--enable-alpha-plugins --enable-exec"

@@ -1,0 +1,32 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: argocd-repo-server
+spec:
+  template:
+    spec:
+      containers:
+        - name: argocd-repo-server
+          env:
+            - name: SOPS_AGE_KEY_FILE
+              value: /.config/sops/age/keys.txt
+          volumeMounts:
+            - name: ksops
+              mountPath: /usr/local/bin/ksops
+              subPath: usr/local/bin/ksops
+            - name: sops-age
+              mountPath: /.config/sops/age
+              readOnly: true
+      volumes:
+        # The ksops image is distroless, so the binary is mounted straight from
+        # the image instead of being copied by an init container.
+        - name: ksops
+          image:
+            reference: viaductoss/ksops:v4.5.1
+            pullPolicy: IfNotPresent
+        # Created out of band by scripts/deploy-apps.sh. Optional so the
+        # repo-server still starts (without decryption) before the key exists.
+        - name: sops-age
+          secret:
+            secretName: sops-age
+            optional: true

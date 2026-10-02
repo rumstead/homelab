@@ -11,8 +11,8 @@ TALOS_DIR="$PROJECT_DIR/talos"
 CLUSTER_NAME="acemagic-talos"
 CONTROL_PLANE_IP="192.168.1.245"
 WORKER_IP="192.168.1.222"
-KUBERNETES_VERSION="1.35.6"
-TALOS_VERSION="v1.13.6"
+KUBERNETES_VERSION="1.36.5"
+TALOS_VERSION="v1.14.2"
 
 # Persistent storage configuration (must match create-vms.sh)
 PERSISTENT_MOUNT_PATH="${PERSISTENT_MOUNT_PATH:-/var/lib/persistent}"
@@ -64,6 +64,13 @@ cat > "$TEMP_DIR/machine-patch.yaml" << EOF
 machine:
   install:
     disk: /dev/vda
+  # The router forwards DNS to AdGuard, which runs in this cluster. The public
+  # fallback lets a rebooting node resolve its time server before AdGuard is
+  # back, otherwise etcd and kubelet wait on time sync forever.
+  network:
+    nameservers:
+      - 192.168.1.1
+      - 1.1.1.1
   disks:
     - device: /dev/vdb
       partitions:

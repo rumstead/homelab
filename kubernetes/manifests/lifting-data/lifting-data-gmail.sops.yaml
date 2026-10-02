@@ -1,0 +1,24 @@
+apiVersion: v1
+kind: Secret
+metadata:
+    name: lifting-data-gmail
+    namespace: lifting-data
+type: Opaque
+data:
+    app_password: ENC[AES256_GCM,data:yquNtaJLR/JZ1Uk/NClhYs3GlpGFFZZv5ZrpJw==,iv:Epw79/HZGwAyhVAV9jKbHO52NxxD3KnkReT0yIlZvC8=,tag:HtuUdAIcv9VrHH2uIRHaDw==,type:str]
+    username: ENC[AES256_GCM,data:5+D/reH4KFeR62jl1tsNevdfmzEX8p4hjlL4Zw==,iv:9lBWBn66hjjtyk0SZref4Omw6G234VwpLCNL/SfFwzI=,tag:l8/5LG3dNGZINqCOSz7eoQ==,type:str]
+sops:
+    age:
+        - enc: |
+            -----BEGIN AGE ENCRYPTED FILE-----
+            YWdlLWVuY3J5cHRpb24ub3JnL3YxCi0+IFgyNTUxOSBqK2hwd3lieFZ1WllrREc3
+            aXJBUStSbWFiSDFGYm8rK0FDeXJWWWhxdGpBClFyUDBhNUpZbk9qbnkyVTlqL1pH
+            Ly8wSlIvb2RzdkdzOGtCYXVpVjlaYm8KLS0tIFRjSWJ2eW4xQS9lWWFWaGlJNm44
+            OWljN0hiVXo3aHgwbk1vcCs3OUhxQ3MKA1+qyGYM1f89r9VgUju3rTgAoR/mDW18
+            DxEEhVwwzj2zAfXXNIwVs09SVpVQ8iWsELX2J2OxZGu1Ig45+MLi1A==
+            -----END AGE ENCRYPTED FILE-----
+          recipient: age16jjl5fju6syvlmqryqnscc80ertz87fydjf8dxfuhm77ycuw0clqwuyn85
+    encrypted_regex: ^(data|stringData)$
+    lastmodified: "2026-10-02T13:04:02Z"
+    mac: ENC[AES256_GCM,data:5w7YYXTx+HX2VcqwjSoTxV3xif9fvmzqmr8aGwZEOb442oxUamiLv7IYVuf4SuVJ8TIaaNFjmD4u+yJSo1Sutvu8r1UDqzVdpj2esBDivWl6Tfv97wqB076TDnE2EJRh1P9n+Zyd7fwjrQDd69Bn2C34uO/UKuQhPwGL7ggQ72A=,iv:ETpQl5DmnjaA6o4hCcgp6UsOt7JDHNlcyaf8ijjT/1Y=,tag:F6CyQwQ2kOZw6zNHcjboqg==,type:str]
+    version: 3.13.3

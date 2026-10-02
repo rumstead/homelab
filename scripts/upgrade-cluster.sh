@@ -9,9 +9,12 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 # Versions to upgrade to. Keep these in sync with scripts/gen-talos.sh
 # and the talos/*.yaml machine configs.
-TALOS_VERSION="${TALOS_VERSION:-v1.13.6}"
-KUBERNETES_VERSION="${KUBERNETES_VERSION:-1.35.6}"
-INSTALLER_IMAGE="${INSTALLER_IMAGE:-ghcr.io/siderolabs/installer:${TALOS_VERSION}}"
+TALOS_VERSION="${TALOS_VERSION:-v1.14.2}"
+KUBERNETES_VERSION="${KUBERNETES_VERSION:-1.36.5}"
+# Talos 1.14+ only publishes installers through Image Factory. This schematic
+# ID is the vanilla image with no system extensions.
+TALOS_SCHEMATIC="${TALOS_SCHEMATIC:-376567988ad370138ad8b2698212367b8edcb69b5fd68c80be1f2ec7d603b4ba}"
+INSTALLER_IMAGE="${INSTALLER_IMAGE:-factory.talos.dev/metal-installer/${TALOS_SCHEMATIC}:${TALOS_VERSION}}"
 
 CONTROLPLANE_IP="${CONTROLPLANE_IP:-192.168.1.245}"
 WORKER_IP="${WORKER_IP:-192.168.1.222}"

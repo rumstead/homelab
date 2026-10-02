@@ -34,12 +34,12 @@ Perform a live upgrade of Talos and Kubernetes on the homelab cluster. The clust
    - Verify with `talosctl version --client`.
 
 4. **Upgrade Talos on the control plane**
-   - Run: `talosctl upgrade --nodes 192.168.1.245 --image ghcr.io/siderolabs/installer:<VERSION> --preserve=true --wait=true`
+   - Run: `talosctl upgrade --nodes 192.168.1.245 --image factory.talos.dev/metal-installer/376567988ad370138ad8b2698212367b8edcb69b5fd68c80be1f2ec7d603b4ba:<VERSION> --preserve=true --wait=true`
    - The `--preserve` flag is required — it prevents data loss on the persistent disk.
    - Wait for `post check passed` before continuing.
 
 5. **Upgrade Talos on the worker**
-   - Run: `talosctl upgrade --nodes 192.168.1.222 --image ghcr.io/siderolabs/installer:<VERSION> --preserve=true --wait=true`
+   - Run: `talosctl upgrade --nodes 192.168.1.222 --image factory.talos.dev/metal-installer/376567988ad370138ad8b2698212367b8edcb69b5fd68c80be1f2ec7d603b4ba:<VERSION> --preserve=true --wait=true`
    - Wait for `post check passed` before continuing.
 
 6. **Upgrade Kubernetes**
