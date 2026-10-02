@@ -49,6 +49,60 @@ spec:
           autoMount:
             enabled: false
           hostRoot: /sys/fs/cgroup
+        # Agents only read cilium-config at startup, so roll them on config
+        # changes, one node at a time.
+        rollOutCiliumPods: true
+        updateStrategy:
+          rollingUpdate:
+            maxUnavailable: 1
+        # Agent and operator metrics back the Cilium Grafana dashboards
+        prometheus:
+          enabled: true
+          serviceMonitor:
+            enabled: true
+            labels:
+              release: kube-prometheus-stack
+        operator:
+          rollOutPods: true
+          prometheus:
+            enabled: true
+            serviceMonitor:
+              enabled: true
+              labels:
+                release: kube-prometheus-stack
+        dashboards:
+          enabled: true
+          namespace: monitoring
+        hubble:
+          # Must be 2^n - 1
+          eventBufferCapacity: "16383"
+          tls:
+            auto:
+              # The helm method generates a new CA on every Argo CD render
+              method: certmanager
+              certManagerIssuerRef:
+                group: cert-manager.io
+                kind: ClusterIssuer
+                name: homelab-ca-issuer
+          relay:
+            enabled: true
+          ui:
+            enabled: true
+          metrics:
+            enabled:
+              - flows-to-world:any-drop;port;sourceContext=workload-name|reserved-identity;destinationContext=dns|ip
+              - dns:query;ignoreAAAA;sourceContext=workload-name|reserved-identity
+              - drop:sourceContext=workload-name|reserved-identity;destinationContext=workload-name|reserved-identity
+              - flow:sourceContext=workload-name|reserved-identity;destinationContext=workload-name|reserved-identity
+              - tcp
+              - port-distribution
+            serviceMonitor:
+              enabled: true
+              labels:
+                release: kube-prometheus-stack
+            dashboards:
+              enabled: true
+              namespace: monitoring
   destination:
     server: https://kubernetes.default.svc
     namespace: kube-system

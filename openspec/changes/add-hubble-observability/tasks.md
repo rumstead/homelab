@@ -1,19 +1,19 @@
 ## 1. Cilium chart
-- [ ] 1.1 Switch `hubble.tls.auto` to `certmanager` with `homelab-ca-issuer`
-- [ ] 1.2 Enable `hubble.relay` and `hubble.ui`
-- [ ] 1.3 Enable Hubble metrics with the label contexts from design.md, a ServiceMonitor labeled `release: kube-prometheus-stack`, and dashboards in `monitoring`
-- [ ] 1.4 Set `hubble.eventBufferCapacity` to `16383`
-- [ ] 1.5 Render the chart locally and confirm the Certificate, relay, UI, ServiceMonitor, and dashboard ConfigMaps
+- [x] 1.1 Switch `hubble.tls.auto` to `certmanager` with `homelab-ca-issuer`
+- [x] 1.2 Enable `hubble.relay` and `hubble.ui`
+- [x] 1.3 Enable Hubble metrics with the label contexts from design.md, a ServiceMonitor labeled `release: kube-prometheus-stack`, and dashboards in `monitoring`
+- [x] 1.4 Set `hubble.eventBufferCapacity` to `16383`
+- [x] 1.5 Render the chart locally and confirm the Certificate, relay, UI, ServiceMonitor, and dashboard ConfigMaps
 
 ## 2. Manifests
-- [ ] 2.1 Add the DNS visibility `CiliumClusterwideNetworkPolicy` with `enableDefaultDeny` off
-- [ ] 2.2 Add the `hubble.acemagic.lab` HTTPRoute on the gateway `http` listener
-- [ ] 2.3 Add the Egress Grafana dashboard
-- [ ] 2.4 Server-side dry run the new manifests against the cluster
+- [x] 2.1 Add the DNS visibility `CiliumClusterwideNetworkPolicy` with `enableDefaultDeny` off
+- [x] 2.2 Add the `hubble.acemagic.lab` HTTPRoute on the gateway `http` listener
+- [x] 2.3 Add the Egress Grafana dashboard
+- [x] 2.4 Server-side dry run the new manifests against the cluster
 
 ## 3. Host tooling and docs
-- [ ] 3.1 Install the `hubble` CLI in `~/.local/bin`
-- [ ] 3.2 Update `AGENTS.md` (exposed hostnames, monitoring section)
+- [x] 3.1 Install the `hubble` CLI in `~/.local/bin`
+- [x] 3.2 Update `AGENTS.md` (exposed hostnames, monitoring section)
 
 ## 4. Rollout and verification
 - [ ] 4.1 Merge and confirm all Argo CD applications are Synced and Healthy
