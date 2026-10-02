@@ -79,6 +79,9 @@ cluster:
   network:
     cni:
       name: none
+  # Cilium runs with kubeProxyReplacement, so kube-proxy is not deployed.
+  proxy:
+    disabled: true
 EOF
 
 # Apply patches to both configs

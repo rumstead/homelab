@@ -13,35 +13,38 @@ spec:
       labels:
         app: adguard-exporter
     spec:
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 65532
+        runAsGroup: 65532
+        seccompProfile:
+          type: RuntimeDefault
       containers:
         - name: adguard-exporter
-          image: ebrianne/adguard-exporter:v1.14
+          image: ghcr.io/henrywhitaker3/adguard-exporter:v1.2.1
           ports:
-            - containerPort: 9617
+            - containerPort: 9618
               name: metrics
           env:
-            - name: ADGUARD_PROTOCOL
-              value: "http"
-            - name: ADGUARD_HOSTNAME
-              value: "adguard-home.adguard.svc.cluster.local"
-            - name: ADGUARD_PORT
-              value: "80"
-            - name: ADGUARD_USERNAME
+            - name: ADGUARD_SERVERS
+              value: "http://adguard-home.adguard.svc.cluster.local:80"
+            - name: ADGUARD_USERNAMES
               valueFrom:
                 secretKeyRef:
                   name: adguard-credentials
                   key: username
-            - name: ADGUARD_PASSWORD
+            - name: ADGUARD_PASSWORDS
               valueFrom:
                 secretKeyRef:
                   name: adguard-credentials
                   key: password
-            - name: SERVER_PORT
-              value: "9617"
             - name: INTERVAL
-              value: "10s"
-            - name: LOG_LIMIT
-              value: "10000"
+              value: "30s"
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: ["ALL"]
           resources:
             requests:
               memory: 32Mi
@@ -62,7 +65,7 @@ spec:
   selector:
     app: adguard-exporter
   ports:
-    - port: 9617
-      targetPort: 9617
+    - port: 9618
+      targetPort: 9618
       protocol: TCP
       name: metrics
