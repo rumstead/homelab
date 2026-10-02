@@ -139,6 +139,10 @@ spec:
           # Kube-state-metrics
           kubeStateMetrics:
             enabled: true
+
+          # kube-proxy is replaced by Cilium, nothing to scrape
+          kubeProxy:
+            enabled: false
     - repoURL: https://github.com/rumstead/homelab.git
       targetRevision: main
       path: kubernetes/manifests/monitoring
