@@ -9,8 +9,7 @@
 - [ ] 2.1 Add the DNS visibility `CiliumClusterwideNetworkPolicy` with `enableDefaultDeny` off
 - [ ] 2.2 Add the `hubble.acemagic.lab` HTTPRoute on the gateway `http` listener
 - [ ] 2.3 Add the Egress Grafana dashboard
-- [ ] 2.4 Add the new external destination PrometheusRule
-- [ ] 2.5 Server-side dry run the new manifests against the cluster
+- [ ] 2.4 Server-side dry run the new manifests against the cluster
 
 ## 3. Host tooling and docs
 - [ ] 3.1 Install the `hubble` CLI in `~/.local/bin`

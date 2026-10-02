@@ -52,10 +52,3 @@ Grafana SHALL include the Cilium and Hubble dashboards and an Egress dashboard s
 #### Scenario: Review egress
 - **WHEN** an operator opens the Egress dashboard
 - **THEN** it SHALL show the top workloads sending traffic outside the cluster and their destinations over the selected time range
-
-### Requirement: New External Destination Alert
-Prometheus SHALL alert when a workload sends traffic to an external destination that it has not reached in the previous 7 days.
-
-#### Scenario: Unexpected destination
-- **WHEN** a workload sends traffic to a destination with no `hubble_flows_to_world_total` series for that workload in the prior 7 days
-- **THEN** a `warning` alert SHALL fire naming the source workload and destination
