@@ -1,0 +1,23 @@
+apiVersion: v1
+kind: Secret
+metadata:
+    name: golf-etl-rclone
+    namespace: golf-etl
+type: Opaque
+stringData:
+    RCLONE_CONFIG_GDRIVE_TOKEN: ENC[AES256_GCM,data:RaJdG3mpx1N0f1XWicXaWvsh7v6Ypz36ESas9XXWBwSKMzqDKab916YYl+zTZm5CeaACFtXpi6E8lqpv8QY6QeikTnYQaVMeEV1LIeG7PnUaR6HdNPnCyuY/29baI6pZVa7A1mIFU0a6pdw6/yaLDEl1j+n+WWwyuRntEq3d8bcYiSV0bgOBAXhgX9Fae57yeXFSom3zl6kZb3r59FSAtKYr92xgp+VDo7hcwWL3yAnRK6RomKuY3i+OtXxFCcfNRDcdaFbF6BUiuuOcklmJxbLIj/0d4kAEJHIjNne/cBt0i+hR24AdvAibBPfUr7857ANJ9K2B5Ms1PTSXibfAFlhMETYKZqMYPUvUIVdUiKvTB5h/rTMgVx4Zv6AMvS67p9RBHbWW4TR5otjgfGVSXOqqzzVNZiA7I5DGnqj+OmsgQuuNIAawhJP0pqc9mCsy6HG65QNI8pFeLFd0QFXXGXHw96EfelFpSr7ICgLKVgTR7SgIJz96Oj+W0PP5+vL3w76m5QshND9mUtw+VXeVTfsWlElecIGglSEKCC3Ie1Sy3OPLZeDSY/ab4ngnkka0210oLS+JFdu7u1pfVlgpqDDfluGjL2sWVkOPadoFNMwe+PxSFLzgTxcfIQI=,iv:YsOFFKZBV/BYrJxA/r1lrwFz6QTvbbFMLevBxKmTomI=,tag:z696Zf35raA17v8/ic2ICQ==,type:str]
+sops:
+    age:
+        - enc: |
+            -----BEGIN AGE ENCRYPTED FILE-----
+            YWdlLWVuY3J5cHRpb24ub3JnL3YxCi0+IFgyNTUxOSBXUGozY1E1Mzc5bHlrUVo5
+            c3VWL0FJajBvVERreG9wN0l3cTJldTlMQVFZCjNUUGxySGRoTG5ScmJJd2c3azZU
+            cFU3YStuM0o5SUJnR0tOMDRzM1c4RGMKLS0tIHJZMFJLM05kNzcra0kzVXR4UTBv
+            MCtEV1VzWWVodzFNVHBreW5PVVJFWUEKJodiW+gxjN2aTdDZzTz+YiXuwQN+wVrc
+            M3Jj8Iq3Z4fdhIGINd1VphCK8dnWbVIXshFpvigLyuyXx/ghS8P33g==
+            -----END AGE ENCRYPTED FILE-----
+          recipient: age16jjl5fju6syvlmqryqnscc80ertz87fydjf8dxfuhm77ycuw0clqwuyn85
+    encrypted_regex: ^(data|stringData)$
+    lastmodified: "2026-10-05T01:33:20Z"
+    mac: ENC[AES256_GCM,data:YyquQYRjwVTCTWDqxFKQEs0jJvSr7F1KkZ26oTESz43255FnBrWAvWXVCmEY3C/OBE7RAELFDvq0sEzTB8oFC/YaGb9J+4P8+VuYL3hJDYjq+PJVBRo9gdlSiZxDNGMSLH+67VWK1cMQDV714SwWb4Bhh5MrE1m2DLvN9EpR+bY=,iv:jQWq1V6mjEA2yj5qmmcY9dE7snNOROCipf0UhahoZGY=,tag:9c4afdov+BtS1IxjyzAXxA==,type:str]
+    version: 3.13.3

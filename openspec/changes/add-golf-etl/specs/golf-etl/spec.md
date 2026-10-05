@@ -24,18 +24,18 @@ The CronJob SHALL use `ghcr.io/rumstead/golf-etl:latest` with `imagePullPolicy: 
 - **THEN** the next scheduled run SHALL use it without a manifest change
 
 ### Requirement: Drive Credentials
-Google Drive OAuth credentials SHALL be stored in git only as `golf-etl-drive.sops.yaml`, rendered by KSOPS, and exposed to the pipeline as environment variables.
+The rclone Google Drive token SHALL be stored in git only as `golf-etl-rclone.sops.yaml`, rendered by KSOPS, and exposed to the pipeline as an environment variable.
 
 #### Scenario: Credentials at rest
 - **WHEN** the manifests are committed
-- **THEN** the client ID, client secret, and refresh token SHALL appear only in encrypted form
+- **THEN** the rclone token SHALL appear only in encrypted form
 
 #### Scenario: Credentials at runtime
 - **WHEN** a run starts
-- **THEN** `GOLF_DRIVE_CLIENT_ID`, `GOLF_DRIVE_CLIENT_SECRET`, and `GOLF_DRIVE_REFRESH_TOKEN` SHALL be set from the `golf-etl-drive` Secret
+- **THEN** `RCLONE_CONFIG_GDRIVE_TOKEN` SHALL be set from the `golf-etl-rclone` Secret
 
 ### Requirement: Bounded Run Resources
-Each run SHALL be limited to 4 CPU, 3Gi of memory, 10Gi of scratch disk, and 1 hour of wall time.
+Each run SHALL request 1 CPU and 2Gi of memory and be limited to 4 CPU, 6Gi of memory, 10Gi of scratch disk, and 1 hour of wall time.
 
 #### Scenario: Large session
 - **WHEN** a run processes a long 4K video

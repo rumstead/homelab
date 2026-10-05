@@ -1,0 +1,22 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: golf-etl
+  namespace: argocd
+  annotations:
+    argocd.argoproj.io/manifest-generate-paths: .
+spec:
+  project: default
+  source:
+    repoURL: https://github.com/rumstead/homelab.git
+    targetRevision: main
+    path: kubernetes/manifests/golf-etl
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: golf-etl
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true

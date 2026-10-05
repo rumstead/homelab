@@ -6,14 +6,14 @@
 ## What Changes
 - New `golf-etl` namespace with a CronJob that runs `golf-etl poll-drive` every 3 minutes
 - Image `ghcr.io/rumstead/golf-etl:latest` with `imagePullPolicy: Always`, so every push to the app repo's `main` is picked up on the next run
-- Google Drive OAuth credentials as a SOPS encrypted Secret rendered through KSOPS
+- The rclone Google Drive token as a SOPS encrypted Secret rendered through KSOPS (rclone uses its own verified OAuth app, so there is no Google Cloud project)
 - New Argo CD Application `golf-etl` under the app-of-apps
 
 ## Impact
 - Affected specs: `golf-etl` (new)
 - Affected code:
   - `kubernetes/argocd-apps/golf-etl/golf-etl-app.yaml`
-  - `kubernetes/manifests/golf-etl/` (namespace, ConfigMap, CronJob, `golf-etl-drive.sops.yaml`, KSOPS generator, kustomization)
+  - `kubernetes/manifests/golf-etl/` (namespace, ConfigMap, CronJob, `golf-etl-rclone.sops.yaml`, KSOPS generator, kustomization)
   - `AGENTS.md` (managed applications)
 - Breaking changes: none
 - Out of scope: the pipeline itself (lives in `rumstead/golf-etl`), any HTTPRoute or exposed service

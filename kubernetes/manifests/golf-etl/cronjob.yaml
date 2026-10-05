@@ -1,0 +1,53 @@
+# Drive token comes from golf-etl-rclone.sops.yaml (edit with `sops`).
+# Forbid plus no in-place restarts lets the app treat anything left in golf/processing/ as orphaned.
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: golf-etl-poll
+  namespace: golf-etl
+spec:
+  schedule: "*/3 * * * *"
+  concurrencyPolicy: Forbid
+  successfulJobsHistoryLimit: 3
+  failedJobsHistoryLimit: 3
+  jobTemplate:
+    spec:
+      backoffLimit: 0
+      activeDeadlineSeconds: 3600
+      template:
+        spec:
+          restartPolicy: Never
+          securityContext:
+            runAsNonRoot: true
+            runAsUser: 10001
+            fsGroup: 10001
+            seccompProfile:
+              type: RuntimeDefault
+          containers:
+            - name: poll
+              image: ghcr.io/rumstead/golf-etl:latest
+              imagePullPolicy: Always
+              args: ["poll-drive"]
+              securityContext:
+                allowPrivilegeEscalation: false
+                capabilities:
+                  drop: ["ALL"]
+              envFrom:
+                - configMapRef:
+                    name: golf-etl-config
+                - secretRef:
+                    name: golf-etl-rclone
+              resources:
+                requests:
+                  cpu: "1"
+                  memory: 2Gi
+                limits:
+                  cpu: "4"
+                  memory: 6Gi
+              volumeMounts:
+                - name: scratch
+                  mountPath: /scratch
+          volumes:
+            - name: scratch
+              emptyDir:
+                sizeLimit: 10Gi

@@ -1,10 +1,10 @@
 ## 1. Prerequisites
 - [ ] 1.1 `ghcr.io/rumstead/golf-etl:latest` is published with a working `poll-drive` (tracked in `rumstead/golf-etl`)
-- [ ] 1.2 Create the GCP OAuth Desktop client (Production status, `drive` scope) and mint a refresh token
+- [ ] 1.2 Run `rclone authorize "drive"` for the owner's account
 
 ## 2. Manifests
 - [ ] 2.1 Add `kubernetes/manifests/golf-etl/namespace.yaml` and `configmap.yaml`
-- [ ] 2.2 Add `golf-etl-drive.sops.yaml` (encrypted with `sops encrypt -i`) and `ksops-generator.yaml`
+- [ ] 2.2 Add `golf-etl-rclone.sops.yaml` (encrypted with `sops encrypt -i`) and `ksops-generator.yaml`
 - [ ] 2.3 Add `cronjob.yaml` per design.md
 - [ ] 2.4 Add `kustomization.yaml`
 - [ ] 2.5 Add `kubernetes/argocd-apps/golf-etl/golf-etl-app.yaml`
