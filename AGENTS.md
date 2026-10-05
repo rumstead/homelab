@@ -108,6 +108,7 @@ Use this file as the operational context for repository changes.
 - `external-dns`
 - `adguard-home`
 - `kube-prometheus-stack`
+- `golf-etl`
 
 ## Networking and ingress details
 
