@@ -1,0 +1,150 @@
+# nginx fronts tusd (/files/) and upload-server (everything else); tusd calls upload-server's hooks over loopback.
+# Tailscale terminates TLS, so nginx only sees plain HTTP on 8080.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: golf-etl-upload
+  namespace: golf-etl
+spec:
+  replicas: 1
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app: golf-etl-upload
+  template:
+    metadata:
+      labels:
+        app: golf-etl-upload
+    spec:
+      nodeSelector:
+        kubernetes.io/hostname: talos-hk3-kam
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 10001
+        runAsGroup: 10001
+        fsGroup: 10001
+        seccompProfile:
+          type: RuntimeDefault
+      initContainers:
+        - name: init-data
+          image: busybox:1.37.0
+          command: ["mkdir", "-p", "/data/uploads", "/data/inbox", "/data/processing", "/data/failed", "/data/.golf-etl"]
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop: ["ALL"]
+          resources:
+            requests:
+              cpu: 50m
+              memory: 64Mi
+            limits:
+              cpu: 200m
+              memory: 256Mi
+          volumeMounts:
+            - name: data
+              mountPath: /data
+      containers:
+        - name: nginx
+          image: nginxinc/nginx-unprivileged:1.29.8-alpine
+          ports:
+            - name: http
+              containerPort: 8080
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop: ["ALL"]
+          resources:
+            requests:
+              cpu: 50m
+              memory: 64Mi
+            limits:
+              cpu: 200m
+              memory: 256Mi
+          volumeMounts:
+            - name: nginx-config
+              mountPath: /etc/nginx/conf.d
+        - name: tusd
+          image: tusproject/tusd:v2.10.1
+          args:
+            - -host=127.0.0.1
+            - -port=8081
+            - -base-path=/files/
+            - -upload-dir=/data/uploads
+            - -behind-proxy
+            - -hooks-http=http://127.0.0.1:8090/hooks
+            - -hooks-enabled-events=pre-create,post-finish
+            - -hooks-http-retry=5
+            - -hooks-http-backoff=2s
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop: ["ALL"]
+          resources:
+            requests:
+              cpu: 50m
+              memory: 64Mi
+            limits:
+              cpu: 500m
+              memory: 512Mi
+          volumeMounts:
+            - name: data
+              mountPath: /data
+        - name: upload-server
+          image: ghcr.io/rumstead/golf-etl:latest
+          imagePullPolicy: Always
+          args: ["upload-server"]
+          env:
+            - name: GOLF_INBOX_ROOT
+              value: /data
+            - name: GOLF_UPLOAD_DIR
+              value: /data/uploads
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop: ["ALL"]
+          resources:
+            requests:
+              cpu: 50m
+              memory: 64Mi
+            limits:
+              cpu: 500m
+              memory: 256Mi
+          volumeMounts:
+            - name: data
+              mountPath: /data
+      volumes:
+        - name: data
+          persistentVolumeClaim:
+            claimName: golf-etl-data
+        - name: nginx-config
+          configMap:
+            name: golf-etl-upload-nginx
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: golf-etl-upload
+  namespace: golf-etl
+spec:
+  selector:
+    app: golf-etl-upload
+  ports:
+    - port: 80
+      targetPort: http
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: golf-upload
+  namespace: golf-etl
+spec:
+  ingressClassName: tailscale
+  defaultBackend:
+    service:
+      name: golf-etl-upload
+      port:
+        number: 80
+  tls:
+    - hosts:
+        - golf-upload
