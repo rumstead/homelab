@@ -6,6 +6,7 @@ metadata:
   name: golf-etl-config
   namespace: golf-etl
 data:
+  GOLF_STORAGE: drive
   GOLF_REMOTE: gdrive:golf
   RCLONE_CONFIG_GDRIVE_TYPE: drive
   RCLONE_CONFIG_GDRIVE_SCOPE: drive
