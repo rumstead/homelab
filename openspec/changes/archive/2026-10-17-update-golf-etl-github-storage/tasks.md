@@ -10,7 +10,7 @@
 ## 3. iPhone check
 - [x] 3.1 Upload one short range video from Photos at `https://golf-upload.tailb4b203.ts.net` and note its size and resolution from the Info panel
 - [x] 3.2 Compare the file in `/data/inbox` with Photos: picking from Photos made iOS upload a re-encoded H.264 copy with `creation_time` rewritten, so the fallback was used: saving to Files then Choose File uploaded the original byte for byte (sha256 matched the Drive copy). The page now tells the owner to use Files (golf-etl PR #9)
-- [ ] 3.3 Remove the test file from `/data/inbox` after the owner confirms it
+- [x] 3.3 Removed the re-encoded test upload (IMG_4600.mov from Photos) from `/data/inbox` with the owner's OK; the verified Files copy (IMG_4600.MOV) was held in `/data/hold` during the cutover and migration, then moved back into the inbox, where it became the end-to-end run
 
 ## 4. Cutover
 - [x] 4.1 Add `golf-etl-deploy-key.sops.yaml` (encrypted with `sops encrypt -i`) and list it in `ksops-generator.yaml`
