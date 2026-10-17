@@ -1,0 +1,9 @@
+# Tailscale proxy pods need privileges the cluster's baseline Pod Security default rejects.
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: tailscale
+  labels:
+    pod-security.kubernetes.io/enforce: privileged
+    pod-security.kubernetes.io/audit: privileged
+    pod-security.kubernetes.io/warn: privileged
