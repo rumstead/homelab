@@ -1,0 +1,22 @@
+apiVersion: v1
+kind: Secret
+metadata:
+    name: golf-etl-deploy-key
+    namespace: golf-etl
+stringData:
+    id_ed25519: ENC[AES256_GCM,data:amJ+NWMdemvc71kZ12jpKMB2RCUlpBhNYJMmZ35W2B+WJHQkuN6lZ8sZgeD5r/9bnA6scR/Irrkr5v5uacdw3iEXYHq5AdwnqSjUdFsGPl7YKnmvMO/Z8ZHpJmuc0D4sfDV8JwGb359MDpKL11CbsMXXe7ELaCmXEfNTs0DLvCWgJ8a34msEgoWhy/LAvO4RQJaO7oIDYriV4RLr/fbFgXnTga8dvQkR1nCmxsQpBY0LeLphTvNKJysT98h9pobhNa8+jUKaQ4ab2M/ENIWyF5hbm7vTqtW9i6zxmuHy/18kl9DZAXLLKVpXc2b3L9yFZWdxqeAdwNJ7m/lx64mXS0fVpuexdGlPjbcXZIXwrVRQ6t3TNXyBj8yiubPRtv+jNA8v85SLveBbdiFl+oNEIoV6LIBkuBV2p25PNCkVWfjwJce3KEZrHsTki92k20R1OEJY5KNHxv/QMq/AWqQplW7kg5q3f0MERRTG+SdQbhfrUJiUy1F/SwQjGk7WFeXlXT0jGH1ivWeYSyO447vn,iv:I1otbi3dujsI05McQg9UiFmCkxoNM9CAFH7+9gFBUM4=,tag:k2W3ynFRbanCbzLvY8WECA==,type:str]
+sops:
+    age:
+        - enc: |
+            -----BEGIN AGE ENCRYPTED FILE-----
+            YWdlLWVuY3J5cHRpb24ub3JnL3YxCi0+IFgyNTUxOSB5c1BjUDFjYW1DQTNrT0tD
+            aWN6MHVibmRYQ1h2U09TODJsTXlLLytXVWtJCkxJaVB1QkFtSVhiUGhzeW9jSUha
+            ZDFQQWo4TjhUTUNoV1pRaENCekRESEEKLS0tIHVrVGNSam5qT3RXcSsvTm9GbXRa
+            TGZ0Z2xHaVora1NKMi9PU0dWRG5VMzAKkHLlSHwnCfxtnQUDJICgEFU2YQgyYMaF
+            eC1qg1EPlpVvW4yx6w1sYqgFAm7ztqsHjmhL1Qi+mgpytpyQmKoDjQ==
+            -----END AGE ENCRYPTED FILE-----
+          recipient: age16jjl5fju6syvlmqryqnscc80ertz87fydjf8dxfuhm77ycuw0clqwuyn85
+    encrypted_regex: ^(data|stringData)$
+    lastmodified: "2026-10-17T17:16:36Z"
+    mac: ENC[AES256_GCM,data:Y5aximkWrAl40NdjkVSeVBQ7iCHotIqjWOMn8iz9taTiX7XiTZs9lyHsmXrclIAiyyKMnWQogc1Ghh2SeX00EinhZvQtvGB7kKAvCkl6XDi1Hk2p2rpau19DwgD2kOrrRNE2c3xOwUNt6BT8Bmx6iRkzZKATAbtWk25dfp8ylyM=,iv:Dm1ZcSPv8rGchg0D5p198ENu5tbIU8zEWcKaPPnTpx4=,tag:8qR0N6UY1aN4wYOrD/hiBg==,type:str]
+    version: 3.13.3
