@@ -1,5 +1,8 @@
-# Drive token comes from golf-etl-rclone.sops.yaml (edit with `sops`).
-# Forbid plus no in-place restarts lets the app treat anything left in golf/processing/ as orphaned.
+# Runs in github mode by default: videos come from the inbox on the golf-etl-data volume and sessions are pushed
+# to rumstead/golf-sessions with the deploy key from golf-etl-deploy-key.sops.yaml (edit with `sops`).
+# The pod is pinned to the node that holds the RWO volume, next to the upload pod.
+# Forbid plus no in-place restarts lets the app treat anything left in processing/ as orphaned.
+# The Drive token in golf-etl-rclone.sops.yaml stays mounted so setting GOLF_STORAGE=drive in the ConfigMap rolls back.
 apiVersion: batch/v1
 kind: CronJob
 metadata:
@@ -17,6 +20,8 @@ spec:
       template:
         spec:
           restartPolicy: Never
+          nodeSelector:
+            kubernetes.io/hostname: talos-hk3-kam
           securityContext:
             runAsNonRoot: true
             runAsUser: 10001
@@ -27,7 +32,7 @@ spec:
             - name: poll
               image: ghcr.io/rumstead/golf-etl:latest
               imagePullPolicy: Always
-              args: ["poll-drive"]
+              args: ["poll"]
               securityContext:
                 allowPrivilegeEscalation: false
                 capabilities:
@@ -47,7 +52,22 @@ spec:
               volumeMounts:
                 - name: scratch
                   mountPath: /scratch
+                - name: data
+                  mountPath: /data
+                - name: deploy-key
+                  mountPath: /etc/golf-etl/ssh
+                  readOnly: true
           volumes:
             - name: scratch
               emptyDir:
                 sizeLimit: 10Gi
+            - name: data
+              persistentVolumeClaim:
+                claimName: golf-etl-data
+            - name: deploy-key
+              secret:
+                secretName: golf-etl-deploy-key
+                defaultMode: 0400
+                items:
+                  - key: id_ed25519
+                    path: id_ed25519
