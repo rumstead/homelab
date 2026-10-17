@@ -109,6 +109,7 @@ Use this file as the operational context for repository changes.
 - `adguard-home`
 - `kube-prometheus-stack`
 - `golf-etl`
+- `tailscale-operator`
 
 ## Networking and ingress details
 
