@@ -3,6 +3,13 @@ kind: Kustomization
 resources:
   - namespace.yaml
   - configmap.yaml
+  - pvc.yaml
+  - upload.yaml
   - cronjob.yaml
 generators:
   - ksops-generator.yaml
+configMapGenerator:
+  - name: golf-etl-upload-nginx
+    namespace: golf-etl
+    files:
+      - default.conf=upload-nginx.conf

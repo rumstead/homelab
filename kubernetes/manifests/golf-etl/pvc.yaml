@@ -1,0 +1,12 @@
+# Shared by the upload pod (writes /data/uploads, moves finished files to /data/inbox) and the poll CronJob.
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: golf-etl-data
+  namespace: golf-etl
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 50Gi
