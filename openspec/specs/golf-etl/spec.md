@@ -40,9 +40,9 @@ The rclone Google Drive token SHALL be stored in git only as `golf-etl-rclone.so
 - **THEN** `RCLONE_CONFIG_GDRIVE_TOKEN` SHALL be set from the `golf-etl-rclone` Secret
 
 ### Requirement: Bounded Run Resources
-Each run SHALL request 1 CPU and 2Gi of memory and be limited to 4 CPU, 6Gi of memory, 10Gi of scratch disk, and 1 hour of wall time.
+Each run SHALL request 1 CPU and 2Gi of memory and be limited to 4 CPU, 6Gi of memory, 10Gi of scratch disk, and 2 hours of wall time.
 
 #### Scenario: Large session
 - **WHEN** a run processes a long 4K video
 - **THEN** the pod SHALL NOT exceed its CPU, memory, or `emptyDir` limits
-- **AND** the Job SHALL be terminated if it runs longer than 3600 seconds
+- **AND** the Job SHALL be terminated if it runs longer than 7200 seconds
