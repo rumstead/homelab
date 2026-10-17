@@ -2,7 +2,7 @@
 # to rumstead/golf-sessions with the deploy key from golf-etl-deploy-key.sops.yaml (edit with `sops`).
 # The pod is pinned to the node that holds the RWO volume, next to the upload pod.
 # Forbid plus no in-place restarts lets the app treat anything left in processing/ as orphaned.
-# The Drive token in golf-etl-rclone.sops.yaml stays so GOLF_STORAGE=drive (and args poll-drive) rolls back.
+# The Drive token in golf-etl-rclone.sops.yaml stays mounted so setting GOLF_STORAGE=drive in the ConfigMap rolls back.
 apiVersion: batch/v1
 kind: CronJob
 metadata:
