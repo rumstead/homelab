@@ -41,7 +41,7 @@ The rclone Google Drive token, used only when `GOLF_STORAGE=drive`, SHALL be sto
 
 #### Scenario: Github mode
 - **WHEN** the CronJob runs with `GOLF_STORAGE=github`
-- **THEN** the pipeline SHALL NOT read the rclone token and SHALL authenticate to GitHub with the deploy key
+- **THEN** the pipeline SHALL NOT use the rclone token and SHALL authenticate to GitHub with the deploy key
 
 ### Requirement: Bounded Run Resources
 Each run SHALL request 1 CPU and 2Gi of memory and be limited to 4 CPU, 6Gi of memory, 10Gi of scratch disk, and 2 hours of wall time.

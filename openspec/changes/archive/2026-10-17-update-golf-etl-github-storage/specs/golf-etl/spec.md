@@ -76,4 +76,4 @@ The rclone Google Drive token, used only when `GOLF_STORAGE=drive`, SHALL be sto
 
 #### Scenario: Github mode
 - **WHEN** the CronJob runs with `GOLF_STORAGE=github`
-- **THEN** the pipeline SHALL NOT read the rclone token and SHALL authenticate to GitHub with the deploy key
+- **THEN** the pipeline SHALL NOT use the rclone token and SHALL authenticate to GitHub with the deploy key
