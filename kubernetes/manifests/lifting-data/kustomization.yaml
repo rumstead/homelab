@@ -7,5 +7,6 @@ resources:
   - cronjob.yaml
   - web.yaml
   - route.yaml
+  - ingress.yaml
 generators:
   - ksops-generator.yaml
