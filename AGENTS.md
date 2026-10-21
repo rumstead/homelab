@@ -131,6 +131,11 @@ Use this file as the operational context for repository changes.
   - `grafana.acemagic.lab`
   - `adguard.acemagic.lab`
   - `hubble.acemagic.lab` (Hubble UI, no auth)
+- Tailnet hostnames (Tailscale Ingress, tailnet devices only):
+  - `argocd.tailb4b203.ts.net`
+  - `grafana.tailb4b203.ts.net`
+  - `lifts.tailb4b203.ts.net`
+  - `golf-upload.tailb4b203.ts.net`
 
 ## Secrets (SOPS)
 

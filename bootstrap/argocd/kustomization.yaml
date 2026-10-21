@@ -5,6 +5,7 @@ resources:
   - https://raw.githubusercontent.com/argoproj/argo-cd/v3.5.3/manifests/install.yaml
   - argocd-ns.yaml
   - argocd-route.yaml
+  - argocd-ingress.yaml
 patches:
   - path: argocd-cm-patch.yaml
   - path: argocd-repo-server-ksops-patch.yaml
