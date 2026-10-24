@@ -28,7 +28,7 @@ spec:
           type: RuntimeDefault
       initContainers:
         - name: init-data
-          image: busybox:1.37.0
+          image: busybox:1.38.0
           command: ["mkdir", "-p", "/data/uploads", "/data/inbox", "/data/processing", "/data/failed", "/data/.golf-etl"]
           securityContext:
             allowPrivilegeEscalation: false
@@ -46,7 +46,7 @@ spec:
               mountPath: /data
       containers:
         - name: nginx
-          image: nginxinc/nginx-unprivileged:1.29.8-alpine
+          image: nginxinc/nginx-unprivileged:1.31.7-alpine
           ports:
             - name: http
               containerPort: 8080
