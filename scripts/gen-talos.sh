@@ -11,8 +11,8 @@ TALOS_DIR="$PROJECT_DIR/talos"
 CLUSTER_NAME="acemagic-talos"
 CONTROL_PLANE_IP="192.168.1.245"
 WORKER_IP="192.168.1.222"
-KUBERNETES_VERSION="1.36.5"
-TALOS_VERSION="v1.14.2"
+KUBERNETES_VERSION="1.37.2"
+TALOS_VERSION="v1.14.5"
 
 # Persistent storage configuration (must match create-vms.sh)
 PERSISTENT_MOUNT_PATH="${PERSISTENT_MOUNT_PATH:-/var/lib/persistent}"
