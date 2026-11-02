@@ -52,6 +52,7 @@ Use this file as the operational context for repository changes.
 - Talos/Kubernetes in-place upgrade: [scripts/upgrade-cluster.sh](scripts/upgrade-cluster.sh)
 - Optional app bootstrap helper: [scripts/deploy-apps.sh](scripts/deploy-apps.sh)
 - Graceful VM shutdown config: [scripts/configure-libvirt-guests.sh](scripts/configure-libvirt-guests.sh)
+- Host crash recovery and evidence capture: [scripts/configure-crash-recovery.sh](scripts/configure-crash-recovery.sh)
 - Prometheus cleanup helper: [scripts/cleanup-prometheus.sh](scripts/cleanup-prometheus.sh)
 - Desktop environment install: [scripts/install-desktop.sh](scripts/install-desktop.sh)
 
@@ -180,7 +181,7 @@ Use this file as the operational context for repository changes.
   - Prometheus WAL compression: enabled
   - Prometheus PVC: `10Gi`
   - Grafana persistence: `1Gi`
-  - AlertManager: enabled with email receiver
+  - AlertManager: emails warning and critical alerts through Gmail; full config is the SOPS secret [kubernetes/manifests/monitoring/sops/alertmanager-config.sops.yaml](kubernetes/manifests/monitoring/sops/alertmanager-config.sops.yaml)
   - Storage alerts: [kubernetes/manifests/monitoring/prometheus-alerts.yaml](kubernetes/manifests/monitoring/prometheus-alerts.yaml)
   - Prometheus cleanup: [scripts/cleanup-prometheus.sh](scripts/cleanup-prometheus.sh)
   - Host scrape targets:

@@ -7,86 +7,6 @@ metadata:
     release: kube-prometheus-stack
 spec:
   groups:
-    - name: storage.rules
-      rules:
-        # Prometheus TSDB volume approaching capacity
-        - alert: PrometheusStorageAlmostFull
-          expr: |
-            (
-              kubelet_volume_stats_used_bytes{persistentvolumeclaim=~"prometheus-.*"}
-              /
-              kubelet_volume_stats_capacity_bytes{persistentvolumeclaim=~"prometheus-.*"}
-            ) > 0.80
-          for: 15m
-          labels:
-            severity: warning
-          annotations:
-            summary: "Prometheus storage is above 80% capacity"
-            description: >-
-              PVC {{ $labels.persistentvolumeclaim }} in namespace {{ $labels.namespace }}
-              is {{ $value | humanizePercentage }} full.
-              Consider reducing retention or deleting old series.
-            runbook: |
-              1. Check current usage: kubectl exec -n monitoring prometheus-kube-prometheus-stack-prometheus-0 -- df -h /prometheus
-              2. Delete old series: curl -X POST http://localhost:9090/api/v1/admin/tsdb/delete_series -d 'match[]={__name__=~".+"}&start=<RFC3339>&end=<RFC3339>'
-              3. Clean tombstones: curl -X POST http://localhost:9090/api/v1/admin/tsdb/clean_tombstones
-
-        # Prometheus TSDB volume critically full
-        - alert: PrometheusStorageCritical
-          expr: |
-            (
-              kubelet_volume_stats_used_bytes{persistentvolumeclaim=~"prometheus-.*"}
-              /
-              kubelet_volume_stats_capacity_bytes{persistentvolumeclaim=~"prometheus-.*"}
-            ) > 0.95
-          for: 5m
-          labels:
-            severity: critical
-          annotations:
-            summary: "Prometheus storage is critically full (>95%)"
-            description: >-
-              PVC {{ $labels.persistentvolumeclaim }} in namespace {{ $labels.namespace }}
-              is {{ $value | humanizePercentage }} full.
-              Immediate action required to prevent data loss.
-            runbook: |
-              1. Delete old series immediately: curl -X POST http://localhost:9090/api/v1/admin/tsdb/delete_series -d 'match[]={__name__=~".+"}&end=<24h-ago-RFC3339>'
-              2. Clean tombstones: curl -X POST http://localhost:9090/api/v1/admin/tsdb/clean_tombstones
-              3. If still full, reduce retention: edit retentionSize in kube-prometheus-stack-app.yaml
-
-        # Any persistent volume filling up
-        - alert: PersistentVolumeFillingUp
-          expr: |
-            (
-              kubelet_volume_stats_used_bytes{job="kubelet"}
-              /
-              kubelet_volume_stats_capacity_bytes{job="kubelet"}
-            ) > 0.85
-          for: 15m
-          labels:
-            severity: warning
-          annotations:
-            summary: "Persistent volume is above 85% capacity"
-            description: >-
-              PVC {{ $labels.persistentvolumeclaim }} in namespace {{ $labels.namespace }}
-              is {{ $value | humanizePercentage }} full.
-
-        # Persistent volume inodes exhaustion
-        - alert: PersistentVolumeInodesFillingUp
-          expr: |
-            (
-              kubelet_volume_stats_inodes_used{job="kubelet"}
-              /
-              kubelet_volume_stats_inodes{job="kubelet"}
-            ) > 0.90
-          for: 15m
-          labels:
-            severity: warning
-          annotations:
-            summary: "Persistent volume inodes are above 90%"
-            description: >-
-              PVC {{ $labels.persistentvolumeclaim }} in namespace {{ $labels.namespace }}
-              has used {{ $value | humanizePercentage }} of its inodes.
-
     - name: host-storage.rules
       rules:
         # Host filesystem filling up (scraped via node-exporter on host)
@@ -129,3 +49,21 @@ spec:
               Filesystem {{ $labels.mountpoint }} on {{ $labels.instance }}
               has only {{ $value | humanizePercentage }} free space remaining.
               VM disk writes may fail imminently.
+
+    - name: host-health.rules
+      rules:
+        # Host booted within the last hour. After an unplanned reset the
+        # cluster comes back on its own, so this is the only signal.
+        - alert: HostRebooted
+          expr: time() - node_boot_time_seconds{job="host-node-exporter"} < 3600
+          labels:
+            severity: warning
+          annotations:
+            summary: "Host rebooted {{ $value | humanizeDuration }} ago"
+            description: >-
+              {{ $labels.instance }} booted within the last hour. If you did not
+              reboot it, the watchdog or a kernel panic did.
+            runbook: |
+              1. Was it clean? ssh acemagic 'last -x -F | head -5' (a "shutdown" line means planned)
+              2. Panic text: ssh acemagic 'sudo ls -la /var/lib/systemd/pstore /var/crash'
+              3. Previous boot kernel log: ssh acemagic 'journalctl -b -1 -k | grep -iE "hung|panic|blocked for more than"'
