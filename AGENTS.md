@@ -32,7 +32,7 @@ Use this file as the operational context for repository changes.
 ## Environment baseline
 
 - Host: ACEMAGICIAN Kron Mini K1 Mini PC
-- CPU: AMD Ryzen 7 7730U (8C/16T)
+- CPU: AMD Ryzen 7 5825U (8C/16T)
 - Memory: 32GB DDR4
 - Storage: 512GB SSD
 - Host OS: Ubuntu
