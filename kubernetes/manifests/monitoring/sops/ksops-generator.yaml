@@ -7,5 +7,5 @@ metadata:
       exec:
         path: ksops
 files:
-  - ./alertmanager-smtp.sops.yaml
+  - ./alertmanager-config.sops.yaml
   - ./grafana-admin.sops.yaml
