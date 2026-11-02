@@ -12,7 +12,9 @@
 #      instead of a frozen host.
 #   3. sp5100_tco: loads the AMD FCH hardware watchdog so the RuntimeWatchdogSec
 #      in /etc/systemd/system.conf.d/watchdog.conf resets a fully frozen host.
-#      Ubuntu blacklists the module from auto-loading.
+#      Ubuntu blacklists the module and systemd-modules-load honors that, so
+#      an early-boot service loads it by name instead. systemd keeps retrying
+#      the watchdog device and opens it as soon as the module creates it.
 #   4. SATA link power management set to max_performance, so the SSD link
 #      never enters low-power states.
 #
@@ -34,12 +36,30 @@ EOF
 sudo sysctl -p /etc/sysctl.d/91-hung-task-panic.conf
 
 echo "Loading the sp5100_tco hardware watchdog..."
-echo sp5100_tco | sudo tee /etc/modules-load.d/sp5100_tco.conf > /dev/null
-sudo modprobe sp5100_tco
-if ls /dev/watchdog* > /dev/null 2>&1; then
-  # Re-exec systemd so it opens the watchdog device now.
-  sudo systemctl daemon-reexec
-else
+sudo rm -f /etc/modules-load.d/sp5100_tco.conf
+if grep -qx 'sp5100_tco *' /etc/initramfs-tools/modules; then
+  sudo sed -i '/^sp5100_tco *$/d' /etc/initramfs-tools/modules
+  sudo update-initramfs -u -k all
+fi
+sudo tee /etc/systemd/system/sp5100-tco-watchdog.service > /dev/null << 'EOF'
+[Unit]
+Description=Load the sp5100_tco hardware watchdog
+DefaultDependencies=no
+After=systemd-modules-load.service
+Before=sysinit.target
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+# Loading by name skips the Ubuntu blacklist that systemd-modules-load honors.
+ExecStart=/usr/sbin/modprobe sp5100_tco
+
+[Install]
+WantedBy=sysinit.target
+EOF
+sudo systemctl daemon-reload
+sudo systemctl enable --now sp5100-tco-watchdog.service
+if ! ls /dev/watchdog* > /dev/null 2>&1; then
   echo "WARNING: sp5100_tco loaded but no /dev/watchdog appeared; the BIOS may disable the TCO timer."
 fi
 
