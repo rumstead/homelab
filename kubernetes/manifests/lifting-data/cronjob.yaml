@@ -32,6 +32,9 @@ spec:
               imagePullPolicy: Always
               command: ["/bin/sh", "/scripts/ingest-and-plot.sh"]
               env:
+                # Dates in Hevy exports are local; "today" for the dashboard must be too.
+                - name: TZ
+                  value: "EST5EDT,M3.2.0,M11.1.0"  # POSIX form of America/New_York; needs no tzdata
                 - name: GMAIL_USER
                   valueFrom:
                     secretKeyRef:
@@ -49,6 +52,9 @@ spec:
                   mountPath: /app/output
                 - name: scripts
                   mountPath: /scripts
+                - name: progression
+                  mountPath: /config
+                  readOnly: true
               resources:
                 requests:
                   cpu: 100m
@@ -67,3 +73,6 @@ spec:
               configMap:
                 name: lifting-data-scripts
                 defaultMode: 0755
+            - name: progression
+              configMap:
+                name: lifting-data-progression
