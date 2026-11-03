@@ -32,7 +32,12 @@ data:
 
     echo "[lifting-data] generating dashboard ${config_args}"
     # shellcheck disable=SC2086
-    python3 -m lifting_data.cli --db "$DB" plot-all --output /app/output/index.html $config_args
+    if ! python3 -m lifting_data.cli --db "$DB" plot-all --output /app/output/index.html $config_args; then
+      # A broken progression.toml must not leave the page stale: rebuild with defaults.
+      echo "[lifting-data] plot-all failed with config; retrying with defaults"
+      status=1
+      python3 -m lifting_data.cli --db "$DB" plot-all --output /app/output/index.html
+    fi
 
     echo "[lifting-data] done"
     exit "$status"
