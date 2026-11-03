@@ -9,21 +9,71 @@ data:
     set -eu
 
     DB=/app/data/lifts.db
+    CONFIG=/config/progression.toml
+    status=0
 
     echo "[lifting-data] init-db"
     python3 -m lifting_data.cli --db "$DB" init-db
 
+    # A Gmail/IMAP failure must not skip the dashboard: "days off", statuses, and
+    # "up next" depend on today's date, so the page is rebuilt every run.
     echo "[lifting-data] ingest-email"
     python3 -m lifting_data.cli --db "$DB" ingest-email \
       --imap-user "$GMAIL_USER" \
       --source-mailbox "lift-data/workouts" \
       --processed-mailbox "lift-data/processed" \
-      --allow-sender "$GMAIL_USER"
+      --allow-sender "$GMAIL_USER" || { echo "[lifting-data] ingest-email failed"; status=1; }
 
-    echo "[lifting-data] generating charts"
-    python3 -m lifting_data.cli --db "$DB" plot-all --output /app/output/index.html
+    # Older images do not know --config; only pass it when supported.
+    config_args=""
+    if [ -f "$CONFIG" ] && python3 -m lifting_data.cli plot-all --help | grep -q -- "--config"; then
+      config_args="--config $CONFIG"
+    fi
+
+    echo "[lifting-data] generating dashboard ${config_args}"
+    # shellcheck disable=SC2086
+    if ! python3 -m lifting_data.cli --db "$DB" plot-all --output /app/output/index.html $config_args; then
+      # A broken progression.toml must not leave the page stale: rebuild with defaults.
+      echo "[lifting-data] plot-all failed with config; retrying with defaults"
+      status=1
+      python3 -m lifting_data.cli --db "$DB" plot-all --output /app/output/index.html
+    fi
 
     echo "[lifting-data] done"
+    exit "$status"
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: lifting-data-progression
+  namespace: lifting-data
+data:
+  # Progression coach overrides (see progression.example.toml in rumstead/stronglifts-export).
+  # Exercise names must match Hevy exercise titles exactly.
+  progression.toml: |
+    [defaults]
+    increment = 5
+    layoff_days = 14
+    deload_pct = 0.10
+    bodyweight = 212
+
+    [exercises."Lateral Raise (Dumbbell)"]
+    rep_range = [10, 12]
+
+    [exercises."Lateral Raise (Cable)"]
+    rep_range = [10, 12]
+
+    [exercises."Lateral Raise (Machine)"]
+    rep_range = [10, 12]
+
+    [exercises."Face Pull"]
+    rep_range = [10, 12]
+
+    [exercises."Lat Pulldown (Cable)"]
+    rep_range = [10, 12]
+
+    [exercises."Seated Leg Curl (Machine)"]
+    rep_range = [10, 12]
 ---
 apiVersion: v1
 kind: ConfigMap
