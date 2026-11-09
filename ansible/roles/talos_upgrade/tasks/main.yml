@@ -1,0 +1,45 @@
+---
+- name: Upgrade Talos one node at a time
+  ansible.builtin.include_tasks: node.yml
+  loop: "{{ talos_nodes }}"
+  loop_control:
+    loop_var: node
+    label: "{{ node.name }}"
+
+- name: Read the Kubernetes API server version
+  ansible.builtin.command:
+    argv: [kubectl, --kubeconfig, "{{ kubeconfig_path }}", version, -o, json]
+  register: talos_upgrade_kubectl_version
+  check_mode: false
+  changed_when: false
+
+- name: Parse the Kubernetes API server version
+  ansible.builtin.set_fact:
+    talos_upgrade_k8s_running: "{{ (talos_upgrade_kubectl_version.stdout | from_json).serverVersion.gitVersion | regex_replace('^v', '') }}"
+
+- name: Check the Kubernetes API server version
+  ansible.builtin.assert:
+    that: talos_upgrade_k8s_running is match('^[0-9]+\.[0-9]+\.[0-9]+$')
+    fail_msg: "Could not parse the API server version from kubectl: {{ talos_upgrade_k8s_running }}"
+    quiet: true
+
+- name: Preview the Kubernetes upgrade
+  ansible.builtin.command:
+    argv: [talosctl, --talosconfig, "{{ talosconfig_path }}", -n, "{{ controlplane_ip }}", upgrade-k8s, "--to={{ kubernetes_version }}", --dry-run]
+  register: talos_upgrade_k8s_plan
+  when: plan_only | bool or talos_upgrade_k8s_running != kubernetes_version
+  check_mode: false
+  changed_when: false
+
+- name: Show the Kubernetes upgrade plan
+  ansible.builtin.debug:
+    msg: "{{ (talos_upgrade_k8s_plan.stdout_lines + talos_upgrade_k8s_plan.stderr_lines) | select | list }}"
+  when: talos_upgrade_k8s_plan is not skipped
+
+- name: Upgrade Kubernetes to {{ kubernetes_version }}
+  ansible.builtin.command:
+    argv: [talosctl, --talosconfig, "{{ talosconfig_path }}", -n, "{{ controlplane_ip }}", upgrade-k8s, "--to={{ kubernetes_version }}"]
+  when:
+    - not plan_only | bool
+    - talos_upgrade_k8s_running != kubernetes_version
+  changed_when: true

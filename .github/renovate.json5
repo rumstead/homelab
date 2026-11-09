@@ -2,7 +2,7 @@
   // Renovate configuration for the homelab GitOps repo.
   // Covers: Argo CD Application helm chart pins, container image tags in raw
   // manifests, the Argo CD and metrics-server kustomize remote resources, and
-  // Talos/Kubernetes versions in provisioning scripts.
+  // the versions pinned in ansible/group_vars/all.yml.
   $schema: 'https://docs.renovatebot.com/renovate-schema.json',
   extends: [
     'config:recommended',
@@ -31,8 +31,8 @@
       groupName: 'kubernetes manifests',
     },
     {
-      // Talos and Kubernetes bumps only change the script pins. The live
-      // cluster is upgraded with scripts/upgrade-cluster.sh.
+      // Talos and Kubernetes bumps only change the pins in group_vars. The
+      // live cluster is upgraded with ansible/upgrade.yml.
       matchPackageNames: ['siderolabs/talos', 'kubernetes/kubernetes'],
       groupName: 'talos and kubernetes',
     },
@@ -73,21 +73,11 @@
       datasourceTemplate: 'github-releases',
     },
     {
-      // TALOS_VERSION="v1.14.2" or TALOS_VERSION="${TALOS_VERSION:-v1.14.2}"
+      // Versions in ansible/group_vars/all.yml, each under a comment like
+      // # renovate: datasource=github-releases depName=org/repo extractVersion=^v(?<version>.+)$
       customType: 'regex',
-      managerFilePatterns: ['/^scripts/.+\\.sh$/'],
-      matchStrings: ['TALOS_VERSION="(?:\\$\\{TALOS_VERSION:-)?(?<currentValue>v\\d+\\.\\d+\\.\\d+)'],
-      depNameTemplate: 'siderolabs/talos',
-      datasourceTemplate: 'github-releases',
-    },
-    {
-      // KUBERNETES_VERSION="1.36.5", plain or ${VAR:-default} (no leading v)
-      customType: 'regex',
-      managerFilePatterns: ['/^scripts/.+\\.sh$/'],
-      matchStrings: ['KUBERNETES_VERSION="(?:\\$\\{KUBERNETES_VERSION:-)?(?<currentValue>\\d+\\.\\d+\\.\\d+)'],
-      depNameTemplate: 'kubernetes/kubernetes',
-      datasourceTemplate: 'github-releases',
-      extractVersionTemplate: '^v(?<version>.+)$',
+      managerFilePatterns: ['/^ansible/group_vars/all\\.yml$/'],
+      matchStrings: ['# renovate: datasource=(?<datasource>\\S+) depName=(?<depName>\\S+)(?: extractVersion=(?<extractVersion>\\S+))?\\n[a-z_]+: (?<currentValue>\\S+)'],
     },
     {
       // KSOPS image volume reference on the Argo CD repo-server

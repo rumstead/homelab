@@ -19,7 +19,7 @@ Keep this managed block so 'openspec update' can refresh the instructions.
 
 # Agent Operating Reference
 
-Last updated: 2026-10-02
+Last updated: 2026-11-09
 
 Use this file as the operational context for repository changes.
 
@@ -46,15 +46,15 @@ Use this file as the operational context for repository changes.
 
 ## Key provisioning and bootstrap paths
 
-- VM creation: [scripts/create-vms.sh](scripts/create-vms.sh)
-- Talos config generation: [scripts/gen-talos.sh](scripts/gen-talos.sh)
-- Cluster bootstrap: [scripts/bootstrap-cluster.sh](scripts/bootstrap-cluster.sh)
-- Talos/Kubernetes in-place upgrade: [scripts/upgrade-cluster.sh](scripts/upgrade-cluster.sh)
-- Optional app bootstrap helper: [scripts/deploy-apps.sh](scripts/deploy-apps.sh)
-- Graceful VM shutdown config: [scripts/configure-libvirt-guests.sh](scripts/configure-libvirt-guests.sh)
-- Host crash recovery and evidence capture: [scripts/configure-crash-recovery.sh](scripts/configure-crash-recovery.sh)
+Run every playbook from the repo root (`ansible.cfg` lives there). Each role is idempotent and tagged with its name; `--check --diff` previews a role against the live host.
+
+- Host, VMs and cluster bootstrap: [ansible/site.yml](ansible/site.yml)
+  - Host roles: `base` (apt repos, packages, snaps, cluster CLIs), `crash_recovery` (kdump, watchdog, lockup panics, reset-reason logging), `exporters`, `auto_updates`, `desktop`, `network` (`br0` netplan, never applied live), `libvirt` (libvirt-guests, persistent disks, Talos VMs created only when missing)
+  - Cluster roles: `talos_config` (generates machine configs from the secrets bundle, fails on drift unless `-e talos_config_apply=true`), `cluster_bootstrap` (tag `cluster`), `apps_bootstrap` (tag `apps`: Cilium and Argo CD on a fresh cluster)
+- Talos/Kubernetes in-place upgrade: [ansible/upgrade.yml](ansible/upgrade.yml) (`-e plan_only=true` previews)
+- Pinned versions, IPs, MACs and VM sizes: [ansible/group_vars/all.yml](ansible/group_vars/all.yml)
+- Talos secrets bundle (sops) and machine config patch: [talos/secrets.sops.yaml](talos/secrets.sops.yaml), [talos/patches/common.yaml](talos/patches/common.yaml). The `talos_config` role decrypts it and generates the machine configs on tmpfs (`$XDG_RUNTIME_DIR/talos-<cluster>`) on every run; they are never written to the repo.
 - Prometheus cleanup helper: [scripts/cleanup-prometheus.sh](scripts/cleanup-prometheus.sh)
-- Desktop environment install: [scripts/install-desktop.sh](scripts/install-desktop.sh)
 
 ## Canonical configuration values
 
@@ -140,10 +140,10 @@ Use this file as the operational context for repository changes.
 
 ## Secrets (SOPS)
 
-- Never commit plaintext Secrets. Encrypt them as `*.sops.yaml` with `sops encrypt -i <file>`; rules live in [.sops.yaml](.sops.yaml) (age, `data`/`stringData` only).
+- Never commit plaintext Secrets. Encrypt them as `*.sops.yaml` with `sops encrypt -i <file>`; rules live in [.sops.yaml](.sops.yaml) (age; Kubernetes files encrypt `data`/`stringData` only, `talos/*.sops.yaml` encrypts every value).
 - Argo CD decrypts at render time with KSOPS: [bootstrap/argocd/argocd-repo-server-ksops-patch.yaml](bootstrap/argocd/argocd-repo-server-ksops-patch.yaml).
 - A directory with encrypted files needs a `kustomization.yaml` that lists a `ksops-generator.yaml` under `generators`. See [kubernetes/manifests/external-dns](kubernetes/manifests/external-dns).
-- age private key: `~/.config/sops/age/keys.txt` on the host, and the `argocd/sops-age` Secret in the cluster (created by [scripts/deploy-apps.sh](scripts/deploy-apps.sh)). Keep an offline backup; losing it means re-creating every secret.
+- age private key: `~/.config/sops/age/keys.txt` on the host, and the `argocd/sops-age` Secret in the cluster (created by the `apps_bootstrap` role). Keep an offline backup; losing it means re-creating every secret.
 
 ## Host desktop environment
 
@@ -151,12 +151,12 @@ Use this file as the operational context for repository changes.
 - Display manager: LightDM
 - Remote desktop: xrdp on port `3389`
 - SSH X11 forwarding: enabled
-- Setup script: [scripts/install-desktop.sh](scripts/install-desktop.sh)
+- Ansible role: `desktop`
 
 ## VM lifecycle management
 
 - Graceful shutdown: `libvirt-guests` service with `ON_SHUTDOWN=shutdown` and 120s timeout
-- Setup script: [scripts/configure-libvirt-guests.sh](scripts/configure-libvirt-guests.sh)
+- Ansible role: `libvirt`
 - VMs autostart after host reboot via libvirt autostart
 
 ## Network observability

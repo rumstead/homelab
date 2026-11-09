@@ -1,0 +1,54 @@
+---
+- name: Read the installed version of {{ exporter.name }}
+  ansible.builtin.command: "/usr/local/bin/{{ exporter.binary }} --version"
+  register: exporter_version
+  check_mode: false
+  changed_when: false
+  failed_when: false
+
+- name: Parse the installed version of {{ exporter.name }}
+  ansible.builtin.set_fact:
+    exporter_installed: "{{ ((exporter_version.stdout ~ exporter_version.stderr) | regex_search('version ([0-9.]+)', '\\1') or ['']) | first }}"
+
+- name: Install the pinned version of {{ exporter.name }}
+  when: exporter_installed != exporter.version
+  block:
+    - name: Create a download directory for {{ exporter.name }}
+      ansible.builtin.tempfile:
+        state: directory
+      register: exporter_tmp
+      check_mode: false
+      changed_when: false
+
+    - name: Download {{ exporter.name }}
+      ansible.builtin.get_url:
+        url: "{{ exporter.url }}"
+        dest: "{{ exporter_tmp.path }}/{{ exporter.url | basename }}"
+        checksum: "{{ exporter.checksum }}"
+        mode: "0644"
+      check_mode: false
+
+    - name: Unpack {{ exporter.name }}
+      ansible.builtin.unarchive:
+        src: "{{ exporter_tmp.path }}/{{ exporter.url | basename }}"
+        dest: "{{ exporter_tmp.path }}"
+        remote_src: true
+      check_mode: false
+
+    - name: Copy the binary to /usr/local/bin for {{ exporter.name }}
+      ansible.builtin.copy:
+        src: "{{ exporter_tmp.path }}/{{ exporter.release }}/{{ exporter.binary }}"
+        dest: "/usr/local/bin/{{ exporter.binary }}"
+        remote_src: true
+        owner: root
+        group: root
+        mode: "0755"
+      notify: "Restart {{ exporter.service }}"
+  always:
+    - name: Remove the download directory for {{ exporter.name }}
+      ansible.builtin.file:
+        path: "{{ exporter_tmp.path }}"
+        state: absent
+      when: exporter_tmp.path is defined
+      check_mode: false
+      changed_when: false

@@ -1,0 +1,41 @@
+---
+- name: Install the exporter binaries
+  ansible.builtin.include_tasks: binary.yml
+  loop: "{{ exporters }}"
+  loop_control:
+    loop_var: exporter
+    label: "{{ exporter.name }}"
+
+- name: Create the process-exporter config directory
+  ansible.builtin.file:
+    path: /etc/process-exporter
+    state: directory
+    mode: "0755"
+
+# copy, not template: the file contains Go template syntax ({{.Comm}}).
+- name: Configure process-exporter
+  ansible.builtin.copy:
+    src: config.yml
+    dest: /etc/process-exporter/config.yml
+    mode: "0644"
+  notify: Restart process_exporter
+
+- name: Install the exporter services
+  ansible.builtin.copy:
+    src: "{{ item }}.service"
+    dest: "/etc/systemd/system/{{ item }}.service"
+    mode: "0644"
+  loop:
+    - node_exporter
+    - process_exporter
+  notify: "Restart {{ item }}"
+
+- name: Run the exporters
+  ansible.builtin.systemd_service:
+    name: "{{ item }}"
+    enabled: true
+    state: started
+    daemon_reload: true
+  loop:
+    - node_exporter
+    - process_exporter

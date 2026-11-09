@@ -1,0 +1,79 @@
+---
+- name: Install the XFCE desktop, LightDM, xrdp and desktop apps
+  ansible.builtin.apt:
+    name:
+      - code
+      - google-chrome-stable
+      - libgl1-mesa-dri
+      - lightdm
+      - lightdm-gtk-greeter
+      - mesa-utils
+      - mesa-vulkan-drivers
+      - mousepad
+      - pavucontrol
+      - pulseaudio
+      - thunar
+      - xauth
+      - xclip
+      - xfce4
+      - xfce4-screenshooter
+      - xfce4-taskmanager
+      - xfce4-terminal
+      - xfce4-whiskermenu-plugin
+      - xrdp
+    state: present
+
+- name: Start XFCE for xrdp sessions
+  ansible.builtin.copy:
+    src: startwm.sh
+    dest: /etc/xrdp/startwm.sh
+    mode: "0755"
+  notify: Restart xrdp
+
+- name: Let xrdp read the TLS key
+  ansible.builtin.user:
+    name: xrdp
+    groups: ssl-cert
+    append: true
+  notify: Restart xrdp
+
+- name: Run xrdp
+  ansible.builtin.systemd_service:
+    name: xrdp
+    enabled: true
+    state: started
+
+- name: Enable SSH X11 forwarding
+  ansible.builtin.lineinfile:
+    path: /etc/ssh/sshd_config
+    regexp: "^{{ item.key }} "
+    line: "{{ item.key }} {{ item.value }}"
+  loop:
+    - key: X11Forwarding
+      value: "yes"
+    - key: X11UseLocalhost
+      value: "no"
+  loop_control:
+    label: "{{ item.key }}"
+  notify: Reload ssh
+
+- name: Install the VS Code tunnel service
+  ansible.builtin.copy:
+    src: vscode-tunnel.service
+    dest: /etc/systemd/system/vscode-tunnel.service
+    mode: "0644"
+  register: desktop_vscode_unit
+
+# The tunnel needs a one-time `code tunnel user login` before it can connect.
+- name: Run the VS Code tunnel
+  ansible.builtin.systemd_service:
+    name: vscode-tunnel
+    enabled: true
+    state: started
+    daemon_reload: "{{ desktop_vscode_unit.changed }}"
+
+- name: Boot to the desktop
+  ansible.builtin.file:
+    src: /usr/lib/systemd/system/graphical.target
+    dest: /etc/systemd/system/default.target
+    state: link

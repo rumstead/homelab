@@ -1,0 +1,66 @@
+---
+kubernetes_minor: "{{ kubernetes_version.split('.')[:2] | join('.') }}"
+
+base_packages:
+  - ansible
+  - ansible-lint
+  - bash-completion
+  - build-essential
+  - ca-certificates
+  - curl
+  - dnsutils
+  - fzf
+  - gh
+  - git
+  - gnupg
+  - libfuse2t64
+  - linux-generic-hwe-24.04
+  - net-tools
+  - openssh-server
+  - podman
+  - python3-bcrypt
+  - python3.12-venv
+  - tmux
+
+base_snaps:
+  - name: firefox
+  - name: go
+    classic: true
+  - name: helm
+    classic: true
+  - name: kustomize
+  - name: nmap
+  - name: yq
+
+# Cluster CLIs installed to /usr/local/bin. `version_regex` captures the
+# installed version from `version_cmd`; it is compared with `version`.
+base_clis:
+  - name: talosctl
+    version: "{{ talos_version }}"
+    version_cmd: [talosctl, version, --client, --short]
+    version_regex: 'Talos (v[0-9.]+)'
+    url: "https://github.com/siderolabs/talos/releases/download/{{ talos_version }}/talosctl-linux-amd64"
+    checksum: "sha256:https://github.com/siderolabs/talos/releases/download/{{ talos_version }}/sha256sum.txt"
+    binaries: [talosctl]
+  - name: sops
+    version: "{{ sops_version }}"
+    version_cmd: [sops, --disable-version-check, --version]
+    version_regex: 'sops ([0-9.]+)'
+    url: "https://github.com/getsops/sops/releases/download/v{{ sops_version }}/sops-v{{ sops_version }}.linux.amd64"
+    checksum: "sha256:https://github.com/getsops/sops/releases/download/v{{ sops_version }}/sops-v{{ sops_version }}.checksums.txt"
+    binaries: [sops]
+  # age publishes no checksum file; the download is over HTTPS from GitHub.
+  - name: age
+    version: "v{{ age_version }}"
+    version_cmd: [age, --version]
+    version_regex: '(v[0-9.]+)'
+    url: "https://github.com/FiloSottile/age/releases/download/v{{ age_version }}/age-v{{ age_version }}-linux-amd64.tar.gz"
+    checksum: ""
+    binaries: [age/age, age/age-keygen]
+  - name: hubble
+    version: "{{ hubble_version }}"
+    version_cmd: [hubble, version]
+    version_regex: 'hubble v([0-9.]+)'
+    url: "https://github.com/cilium/hubble/releases/download/v{{ hubble_version }}/hubble-linux-amd64.tar.gz"
+    checksum: "sha256:https://github.com/cilium/hubble/releases/download/v{{ hubble_version }}/hubble-linux-amd64.tar.gz.sha256sum"
+    binaries: [hubble]

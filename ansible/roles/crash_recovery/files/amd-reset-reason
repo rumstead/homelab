@@ -1,0 +1,62 @@
+#!/usr/bin/env python3
+# Decode the AMD FCH S5_RESET_STATUS register, which records why the last
+# reset happened. Read only: the register is never cleared, so it keeps
+# describing the reset that started the current boot. Run as root.
+import mmap
+import os
+import struct
+import sys
+
+FCH_PM_BASE = 0xFED80300
+S5_RESET_STATUS = 0xC0
+
+# Bit meanings as decoded by the upstream kernel (arch/x86/kernel/cpu/amd.c).
+REASONS = {
+    0: "thermal pin BP_THERMTRIP_L was tripped",
+    1: "power button was pressed for 4 seconds",
+    2: "shutdown pin was tripped",
+    4: "remote ASF power off command was received",
+    9: "internal CPU thermal limit was tripped",
+    16: "system reset pin BP_SYS_RST_L was tripped",
+    17: "software issued PCI reset",
+    18: "software wrote 0x4 to reset control register 0xCF9",
+    19: "software wrote 0x6 to reset control register 0xCF9",
+    20: "software wrote 0xE to reset control register 0xCF9",
+    21: "ACPI power state transition occurred",
+    22: "keyboard reset pin KB_RST_L was tripped",
+    23: "internal CPU shutdown event occurred",
+    24: "system failed to boot before failed boot timer expired",
+    25: "hardware watchdog timer expired",
+    26: "remote ASF reset command was received",
+    27: "an uncorrected error caused a data fabric sync flood event",
+    29: "FCH and MP1 failed warm reset handshake",
+    30: "a parity error occurred",
+    31: "a software sync flood event occurred",
+}
+
+
+def main():
+    if os.geteuid() != 0:
+        sys.exit("run as root: sudo " + sys.argv[0])
+
+    addr = FCH_PM_BASE + S5_RESET_STATUS
+    page = addr & ~(mmap.PAGESIZE - 1)
+    fd = os.open("/dev/mem", os.O_RDONLY | os.O_SYNC)
+    try:
+        mem = mmap.mmap(fd, mmap.PAGESIZE, mmap.MAP_SHARED, mmap.PROT_READ, offset=page)
+        value = struct.unpack("<I", mem[addr - page:addr - page + 4])[0]
+        mem.close()
+    finally:
+        os.close(fd)
+
+    print(f"S5_RESET_STATUS @ {addr:#x} = {value:#010x}")
+    if value in (0, 0xFFFFFFFF):
+        print("  no reason recorded (register cleared, unsupported, or full AC power loss)")
+        return
+    for bit in range(32):
+        if value & (1 << bit):
+            print(f"  bit {bit:2}: {REASONS.get(bit, 'undocumented')}")
+
+
+if __name__ == "__main__":
+    main()

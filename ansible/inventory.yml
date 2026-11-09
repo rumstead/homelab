@@ -1,0 +1,4 @@
+all:
+  hosts:
+    acemagic:
+      ansible_connection: local

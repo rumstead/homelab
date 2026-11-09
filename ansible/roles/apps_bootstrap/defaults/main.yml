@@ -1,0 +1,30 @@
+---
+apps_bootstrap_age_key: "/home/{{ host_user }}/.config/sops/age/keys.txt"
+# Apply app-of-apps (and the argocd self-management app) after Argo CD is up.
+apps_bootstrap_app_of_apps: true
+apps_bootstrap_argocd_password: admin1234
+
+apps_bootstrap_cilium_app: "{{ lookup('ansible.builtin.file', repo_root ~ '/kubernetes/argocd-apps/cilium/cilium-app.yaml') | from_yaml }}"
+# Bootstrap Cilium with the Argo CD values minus the parts that need CRDs or
+# namespaces that only exist after Argo CD syncs. Argo CD converges the rest.
+apps_bootstrap_cilium_overrides:
+  k8sServiceHost: "{{ controlplane_ip }}"
+  k8sServicePort: 6443
+  prometheus:
+    serviceMonitor:
+      enabled: false
+  operator:
+    prometheus:
+      serviceMonitor:
+        enabled: false
+  dashboards:
+    enabled: false
+  hubble:
+    tls:
+      auto:
+        method: helm
+    metrics:
+      serviceMonitor:
+        enabled: false
+      dashboards:
+        enabled: false

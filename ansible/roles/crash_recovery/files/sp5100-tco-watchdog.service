@@ -1,0 +1,14 @@
+[Unit]
+Description=Load the sp5100_tco hardware watchdog
+DefaultDependencies=no
+After=systemd-modules-load.service
+Before=sysinit.target
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+# Loading by name skips the Ubuntu blacklist that systemd-modules-load honors.
+ExecStart=/usr/sbin/modprobe sp5100_tco
+
+[Install]
+WantedBy=sysinit.target

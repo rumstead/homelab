@@ -1,0 +1,42 @@
+---
+- name: Read the Talos version, for node {{ node.name }}
+  ansible.builtin.command:
+    argv: [timeout, "30", talosctl, --talosconfig, "{{ talosconfig_path }}", -n, "{{ node.ip }}", version, --short]
+  register: talos_upgrade_version
+  check_mode: false
+  changed_when: false
+
+- name: Parse the Talos version, for node {{ node.name }}
+  ansible.builtin.set_fact:
+    talos_upgrade_running: "{{ (talos_upgrade_version.stdout | regex_search('Tag:\\s+(v[0-9]+\\.[0-9]+\\.[0-9]+)', '\\1') or ['']) | first }}"
+
+- name: Check the parsed Talos version, for node {{ node.name }}
+  ansible.builtin.assert:
+    that: talos_upgrade_running | length > 0
+    fail_msg: "Could not read the server Talos version of {{ node.name }}"
+    quiet: true
+
+- name: Report the Talos upgrade plan, for node {{ node.name }}
+  ansible.builtin.debug:
+    msg: >-
+      {{ node.name }} runs {{ talos_upgrade_running }}:
+      {{ 'already at the target' if talos_upgrade_running == talos_version else 'upgrade to ' ~ talos_version }}
+
+# --preserve keeps the node's data partition, which holds etcd on the single
+# control plane.
+- name: Upgrade Talos, for node {{ node.name }}
+  ansible.builtin.command:
+    argv:
+      - talosctl
+      - --talosconfig
+      - "{{ talosconfig_path }}"
+      - -n
+      - "{{ node.ip }}"
+      - upgrade
+      - --image={{ talos_installer_image | default('factory.talos.dev/metal-installer/' ~ talos_schematic ~ ':' ~ talos_version) }}
+      - --preserve
+      - --wait
+  when:
+    - not plan_only | bool
+    - talos_upgrade_running != talos_version
+  changed_when: true

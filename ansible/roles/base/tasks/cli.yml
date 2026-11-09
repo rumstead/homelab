@@ -1,0 +1,67 @@
+---
+# Installs one CLI from base_clis into /usr/local/bin when the installed
+# version differs from the pinned one.
+- name: Read the installed version of {{ cli.name }}
+  ansible.builtin.command:
+    argv: "{{ ['/usr/local/bin/' ~ cli.version_cmd[0]] + cli.version_cmd[1:] }}"
+  register: cli_version
+  check_mode: false
+  changed_when: false
+  failed_when: false
+
+- name: Parse the installed version of {{ cli.name }}
+  ansible.builtin.set_fact:
+    cli_installed: "{{ (cli_version.stdout | regex_search(cli.version_regex, '\\1') or ['']) | first }}"
+
+- name: Install the pinned version of {{ cli.name }}
+  when: cli_installed != cli.version
+  block:
+    - name: Create a download directory for {{ cli.name }}
+      ansible.builtin.tempfile:
+        state: directory
+      register: cli_tmp
+      check_mode: false
+      changed_when: false
+
+    - name: Download {{ cli.name }}
+      ansible.builtin.get_url:
+        url: "{{ cli.url }}"
+        dest: "{{ cli_tmp.path }}/{{ cli.url | basename }}"
+        checksum: "{{ cli.checksum | default(omit, true) }}"
+        mode: "0644"
+      check_mode: false
+
+    - name: Unpack {{ cli.name }}
+      ansible.builtin.unarchive:
+        src: "{{ cli_tmp.path }}/{{ cli.url | basename }}"
+        dest: "{{ cli_tmp.path }}"
+        remote_src: true
+      when: cli.url is search('\.tar\.gz$')
+      check_mode: false
+
+    - name: Copy the main binary to /usr/local/bin for {{ cli.name }}
+      ansible.builtin.copy:
+        src: "{{ cli_tmp.path }}/{{ cli.binaries[0] if cli.url is search('\\.tar\\.gz$') else cli.url | basename }}"
+        dest: "/usr/local/bin/{{ cli.binaries[0] | basename }}"
+        remote_src: true
+        owner: root
+        group: root
+        mode: "0755"
+
+    - name: Copy the other binaries to /usr/local/bin for {{ cli.name }}
+      ansible.builtin.copy:
+        src: "{{ cli_tmp.path }}/{{ item }}"
+        dest: "/usr/local/bin/{{ item | basename }}"
+        remote_src: true
+        owner: root
+        group: root
+        mode: "0755"
+      loop: "{{ cli.binaries[1:] }}"
+  always:
+    - name: Remove the download directory for {{ cli.name }}
+      ansible.builtin.file:
+        path: "{{ cli_tmp.path }}"
+        state: absent
+      when: cli_tmp.path is defined
+      check_mode: false
+      changed_when: false

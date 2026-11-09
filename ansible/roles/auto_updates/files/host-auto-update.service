@@ -1,0 +1,6 @@
+[Unit]
+Description=Host apt/snap auto-update
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/bin/host-auto-update.sh

@@ -1,0 +1,30 @@
+---
+- name: Configure the host
+  hosts: acemagic
+  become: true
+  roles:
+    - role: base
+      tags: [base]
+    - role: crash_recovery
+      tags: [crash_recovery]
+    - role: exporters
+      tags: [exporters]
+    - role: auto_updates
+      tags: [auto_updates]
+    - role: desktop
+      tags: [desktop]
+    - role: network
+      tags: [network]
+    - role: libvirt
+      tags: [libvirt]
+
+- name: Configure the cluster
+  hosts: acemagic
+  become: false
+  roles:
+    - role: talos_config
+      tags: [talos_config]
+    - role: cluster_bootstrap
+      tags: [cluster]
+    - role: apps_bootstrap
+      tags: [apps]

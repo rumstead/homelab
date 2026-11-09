@@ -1,0 +1,182 @@
+---
+- name: Install the crash capture and hardware diagnostic packages
+  ansible.builtin.apt:
+    name:
+      - linux-crashdump
+      - memtest86+
+      - memtester
+      - rasdaemon
+      - smartmontools
+    state: present
+
+- name: Enable the crash capture and hardware diagnostic services
+  ansible.builtin.systemd_service:
+    name: "{{ item }}"
+    enabled: true
+  loop:
+    - kdump-tools
+    - rasdaemon
+    - smartmontools
+
+- name: Create the systemd and grub drop-in directories
+  ansible.builtin.file:
+    path: "{{ item }}"
+    state: directory
+    mode: "0755"
+  loop:
+    - /etc/default/grub.d
+    - /etc/systemd/system.conf.d
+    - /etc/systemd/journald.conf.d
+
+# The panic message goes to EFI pstore before kdump runs.
+- name: Add crash_kexec_post_notifiers to the kernel command line
+  ansible.builtin.copy:
+    src: 90-crash-capture.cfg
+    dest: /etc/default/grub.d/90-crash-capture.cfg
+    mode: "0644"
+  notify: Update grub
+
+# A run cut short between writing the drop-in and its handler leaves grub.cfg
+# stale, so the generated file itself is checked.
+- name: Check that grub.cfg carries crash_kexec_post_notifiers
+  ansible.builtin.command: grep -q crash_kexec_post_notifiers=1 /boot/grub/grub.cfg
+  register: crash_recovery_grub_cfg
+  check_mode: false
+  changed_when: crash_recovery_grub_cfg.rc != 0
+  failed_when: crash_recovery_grub_cfg.rc not in [0, 1]
+  notify: Update grub
+
+- name: Leave CPU idle states at their defaults
+  ansible.builtin.file:
+    path: /etc/default/grub.d/99-idle-freeze.cfg
+    state: absent
+  notify: Update grub
+
+- name: Panic and reboot on lockups, oopses and tasks hung in I/O
+  ansible.builtin.copy:
+    src: "{{ item }}"
+    dest: "/etc/sysctl.d/{{ item }}"
+    mode: "0644"
+  loop:
+    - 90-lockup-panic.conf
+    - 91-hung-task-panic.conf
+  notify: Apply sysctl files
+
+- name: Let systemd drive the hardware watchdog
+  ansible.builtin.copy:
+    src: watchdog.conf
+    dest: /etc/systemd/system.conf.d/watchdog.conf
+    mode: "0644"
+  notify: Reexec systemd
+
+# Ubuntu blacklists sp5100_tco and systemd-modules-load honors that, so an
+# early-boot service loads it by name instead.
+- name: Keep sp5100_tco out of modules-load.d
+  ansible.builtin.file:
+    path: /etc/modules-load.d/sp5100_tco.conf
+    state: absent
+
+- name: Keep sp5100_tco out of the initramfs
+  ansible.builtin.lineinfile:
+    path: /etc/initramfs-tools/modules
+    regexp: '^sp5100_tco *$'
+    state: absent
+  notify: Update initramfs
+
+- name: Install the sp5100_tco watchdog service
+  ansible.builtin.copy:
+    src: sp5100-tco-watchdog.service
+    dest: /etc/systemd/system/sp5100-tco-watchdog.service
+    mode: "0644"
+  register: crash_recovery_sp5100_unit
+
+- name: Look for the AMD FCH SMBus device that provides the watchdog
+  ansible.builtin.command: lspci -n -d 1022:790b
+  register: crash_recovery_fch
+  check_mode: false
+  changed_when: false
+
+- name: Enable the sp5100_tco watchdog service
+  ansible.builtin.systemd_service:
+    name: sp5100-tco-watchdog.service
+    enabled: true
+    state: "{{ 'started' if crash_recovery_fch.stdout | length > 0 else omit }}"
+    daemon_reload: "{{ crash_recovery_sp5100_unit.changed }}"
+
+- name: Warn that there is no hardware watchdog
+  ansible.builtin.debug:
+    msg: No AMD FCH SMBus device (1022:790b), so sp5100_tco has nothing to drive and the host has no hardware watchdog.
+  when: crash_recovery_fch.stdout | length == 0
+
+- name: Keep the SATA link out of low-power states
+  ansible.builtin.copy:
+    src: 90-sata-lpm.rules
+    dest: /etc/udev/rules.d/90-sata-lpm.rules
+    mode: "0644"
+
+# Ports whose firmware owns the setting report keep_firmware_settings and
+# reject writes, so only ports with another policy are changed.
+- name: Apply the SATA link policy to running ports
+  ansible.builtin.shell: |
+    set -euo pipefail
+    for policy in /sys/class/scsi_host/host*/link_power_management_policy; do
+      [ -r "$policy" ] || continue
+      current=$(cat "$policy")
+      case "$current" in
+        max_performance|keep_firmware_settings) ;;
+        *) echo max_performance > "$policy" && echo "changed $policy from $current" ;;
+      esac
+    done
+  args:
+    executable: /bin/bash
+  register: crash_recovery_lpm
+  changed_when: crash_recovery_lpm.stdout | length > 0
+
+- name: Flush the journal to disk every 15s
+  ansible.builtin.copy:
+    src: 90-sync.conf
+    dest: /etc/systemd/journald.conf.d/90-sync.conf
+    mode: "0644"
+  notify: Restart journald
+
+# "install ... /bin/false" also blocks loads by name, which "blacklist" alone does not.
+- name: Keep the unused RTL8852BE Wi-Fi driver unloaded
+  ansible.builtin.copy:
+    src: blacklist-rtw89.conf
+    dest: /etc/modprobe.d/blacklist-rtw89.conf
+    mode: "0644"
+
+- name: Check whether the RTL8852BE Wi-Fi driver is loaded
+  ansible.builtin.command: grep -qw '^rtw89_8852be' /proc/modules
+  register: crash_recovery_rtw89
+  check_mode: false
+  changed_when: false
+  failed_when: crash_recovery_rtw89.rc not in [0, 1]
+
+- name: Unload the RTL8852BE Wi-Fi driver
+  ansible.builtin.command: modprobe -r rtw89_8852be
+  when: crash_recovery_rtw89.rc == 0
+  changed_when: true
+
+# The decoder lives at a root-owned path so the boot service never runs a
+# file from a user-writable directory.
+- name: Install the AMD reset reason decoder
+  ansible.builtin.copy:
+    src: amd-reset-reason
+    dest: /usr/local/sbin/amd-reset-reason
+    owner: root
+    group: root
+    mode: "0755"
+
+- name: Install the AMD reset reason service
+  ansible.builtin.copy:
+    src: amd-reset-reason.service
+    dest: /etc/systemd/system/amd-reset-reason.service
+    mode: "0644"
+  register: crash_recovery_reset_reason_unit
+
+- name: Log the previous reset reason on every boot
+  ansible.builtin.systemd_service:
+    name: amd-reset-reason.service
+    enabled: true
+    daemon_reload: "{{ crash_recovery_reset_reason_unit.changed }}"

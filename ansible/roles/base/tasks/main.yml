@@ -1,0 +1,139 @@
+---
+# Vendor repos are only created when missing: the Chrome and VS Code packages
+# rewrite their own repo and key files afterwards.
+- name: Check for the Google Chrome repo
+  ansible.builtin.find:
+    paths: /etc/apt/sources.list.d
+    patterns: "google-chrome.list,google-chrome.sources"
+  register: base_chrome_repo
+
+- name: Add the Google Chrome repo
+  when: base_chrome_repo.matched == 0
+  block:
+    - name: Download the Google signing key
+      ansible.builtin.get_url:
+        url: https://dl.google.com/linux/linux_signing_key.pub
+        dest: /usr/share/keyrings/google-chrome.asc
+        mode: "0644"
+
+    - name: Convert the Google signing key
+      ansible.builtin.command: gpg --dearmor -o /usr/share/keyrings/google-chrome.gpg /usr/share/keyrings/google-chrome.asc
+      args:
+        creates: /usr/share/keyrings/google-chrome.gpg
+
+    - name: Write the Google Chrome repo
+      ansible.builtin.copy:
+        dest: /etc/apt/sources.list.d/google-chrome.sources
+        force: false
+        mode: "0644"
+        content: |
+          Types: deb
+          URIs: https://dl.google.com/linux/chrome-stable/deb/
+          Suites: stable
+          Components: main
+          Architectures: amd64
+          Signed-By: /usr/share/keyrings/google-chrome.gpg
+
+- name: Check for the VS Code repo
+  ansible.builtin.find:
+    paths: /etc/apt/sources.list.d
+    patterns: "vscode.list,vscode.sources"
+  register: base_vscode_repo
+
+- name: Add the VS Code repo
+  when: base_vscode_repo.matched == 0
+  block:
+    - name: Download the Microsoft signing key
+      ansible.builtin.get_url:
+        url: https://packages.microsoft.com/keys/microsoft.asc
+        dest: /etc/apt/keyrings/packages.microsoft.asc
+        mode: "0644"
+
+    - name: Convert the Microsoft signing key
+      ansible.builtin.command: gpg --dearmor -o /etc/apt/keyrings/packages.microsoft.gpg /etc/apt/keyrings/packages.microsoft.asc
+      args:
+        creates: /etc/apt/keyrings/packages.microsoft.gpg
+
+    - name: Write the VS Code repo
+      ansible.builtin.copy:
+        dest: /etc/apt/sources.list.d/vscode.list
+        force: false
+        mode: "0644"
+        content: |
+          deb [arch=amd64 signed-by=/etc/apt/keyrings/packages.microsoft.gpg] https://packages.microsoft.com/repos/code stable main
+
+- name: Check for the Kubernetes apt key
+  ansible.builtin.stat:
+    path: /etc/apt/keyrings/kubernetes-apt-keyring.gpg
+  register: base_kubernetes_key
+
+- name: Download the Kubernetes apt key
+  ansible.builtin.get_url:
+    url: "https://pkgs.k8s.io/core:/stable:/v{{ kubernetes_minor }}/deb/Release.key"
+    dest: /etc/apt/keyrings/kubernetes-apt-keyring.asc
+    mode: "0644"
+  when: not base_kubernetes_key.stat.exists
+
+- name: Convert the Kubernetes apt key
+  ansible.builtin.command: gpg --dearmor -o /etc/apt/keyrings/kubernetes-apt-keyring.gpg /etc/apt/keyrings/kubernetes-apt-keyring.asc
+  args:
+    creates: /etc/apt/keyrings/kubernetes-apt-keyring.gpg
+
+# kubectl follows the cluster's Kubernetes minor.
+- name: Point the Kubernetes repo at the cluster minor
+  ansible.builtin.copy:
+    dest: /etc/apt/sources.list.d/kubernetes.list
+    mode: "0644"
+    content: |
+      deb [signed-by=/etc/apt/keyrings/kubernetes-apt-keyring.gpg] https://pkgs.k8s.io/core:/stable:/v{{ kubernetes_minor }}/deb/ /
+  register: base_kubernetes_repo
+
+- name: Install the base packages
+  ansible.builtin.apt:
+    name: "{{ base_packages }}"
+    state: present
+    update_cache: "{{ base_kubernetes_repo.changed }}"
+
+# In check mode the apt cache still lists the old minor until the repo changes.
+- name: Install kubectl for the cluster minor
+  ansible.builtin.apt:
+    name: "kubectl={{ kubernetes_minor }}.*"
+    state: present
+    allow_change_held_packages: true
+  ignore_errors: "{{ ansible_check_mode and base_kubernetes_repo.changed }}"  # noqa: ignore-errors
+
+- name: Install the snaps
+  community.general.snap:
+    name: "{{ item.name }}"
+    classic: "{{ item.classic | default(false) }}"
+  loop: "{{ base_snaps }}"
+  loop_control:
+    label: "{{ item.name }}"
+
+# kubectl comes from the Kubernetes apt repo above.
+- name: Remove the kubectl snap
+  community.general.snap:
+    name: kubectl
+    state: absent
+
+- name: Allow passwordless sudo
+  ansible.builtin.copy:
+    dest: "/etc/sudoers.d/90-{{ host_user }}-nopasswd"
+    content: "{{ host_user }} ALL=(ALL) NOPASSWD: ALL\n"
+    owner: root
+    group: root
+    mode: "0440"
+    validate: visudo -cf %s
+
+- name: Enable podman auto updates
+  ansible.builtin.systemd_service:
+    name: podman-auto-update.timer
+    enabled: true
+    state: started
+
+- name: Install the cluster CLIs
+  ansible.builtin.include_tasks: cli.yml
+  loop: "{{ base_clis }}"
+  loop_control:
+    loop_var: cli
+    label: "{{ cli.name }}"

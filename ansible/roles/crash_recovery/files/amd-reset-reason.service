@@ -1,0 +1,9 @@
+[Unit]
+Description=Log the AMD FCH reason for the previous reset
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/sbin/amd-reset-reason
+
+[Install]
+WantedBy=multi-user.target

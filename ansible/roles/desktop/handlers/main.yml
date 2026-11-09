@@ -1,0 +1,10 @@
+---
+- name: Restart xrdp
+  ansible.builtin.systemd_service:
+    name: xrdp
+    state: restarted
+
+# Reloads the sshd listener if it is running; ssh.socket starts it otherwise.
+- name: Reload ssh
+  ansible.builtin.command: systemctl try-reload-or-restart ssh.service  # noqa: command-instead-of-module
+  changed_when: true

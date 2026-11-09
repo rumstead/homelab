@@ -1,0 +1,67 @@
+---
+# Versions. Renovate reads the comment above each pin.
+# renovate: datasource=github-releases depName=siderolabs/talos
+talos_version: v1.14.2
+# renovate: datasource=github-releases depName=kubernetes/kubernetes extractVersion=^v(?<version>.+)$
+kubernetes_version: 1.36.5
+# Image Factory schematic for the vanilla metal image (no system extensions).
+talos_schematic: 376567988ad370138ad8b2698212367b8edcb69b5fd68c80be1f2ec7d603b4ba
+# renovate: datasource=github-releases depName=prometheus/node_exporter extractVersion=^v(?<version>.+)$
+node_exporter_version: 1.11.1
+# renovate: datasource=github-releases depName=ncabatoff/process-exporter extractVersion=^v(?<version>.+)$
+process_exporter_version: 0.8.7
+# renovate: datasource=github-releases depName=getsops/sops extractVersion=^v(?<version>.+)$
+sops_version: 3.13.3
+# renovate: datasource=github-releases depName=FiloSottile/age extractVersion=^v(?<version>.+)$
+age_version: 1.3.2
+# renovate: datasource=github-releases depName=cilium/hubble extractVersion=^v(?<version>.+)$
+hubble_version: 1.19.4
+
+# Host
+host_user: rumstead
+host_nic: enp2s0
+bridge_name: br0
+host_ip: 192.168.1.234/24
+gateway_ip: 192.168.1.1
+host_nameservers:
+  - 192.168.1.1
+
+# Cluster
+cluster_name: acemagic-talos
+controlplane_ip: 192.168.1.245
+worker_ip: 192.168.1.222
+talos_nodes:
+  - name: controlplane
+    ip: "{{ controlplane_ip }}"
+    type: controlplane
+  - name: worker
+    ip: "{{ worker_ip }}"
+    type: worker
+repo_root: "{{ playbook_dir | dirname }}"
+talos_secrets_file: "{{ repo_root }}/talos/secrets.sops.yaml"
+talos_config_patches:
+  - "{{ repo_root }}/talos/patches/common.yaml"
+# Generated machine configs hold every cluster key, so they live on tmpfs.
+talos_config_dir: "{{ lookup('ansible.builtin.env', 'XDG_RUNTIME_DIR') }}/talos-{{ cluster_name }}"
+# Talos version the cluster was created with. Machine config defaults follow it,
+# so it stays fixed when talos_version moves.
+talos_config_contract: v1.12.0
+talosconfig_path: "/home/{{ host_user }}/.talos/config"
+kubeconfig_path: "/home/{{ host_user }}/.kube/config"
+
+# VMs
+persistent_host_path: /mnt/persistent
+persistent_mount_path: /var/lib/persistent
+vms:
+  - name: talos-controlplane
+    vcpus: 2
+    memory_mib: 5120
+    disk_gb: 10
+    persistent_gb: 50
+    mac: "52:54:00:12:34:10"
+  - name: talos-worker
+    vcpus: 6
+    memory_mib: 10240
+    disk_gb: 150
+    persistent_gb: 100
+    mac: "52:54:00:12:34:11"

@@ -1,0 +1,4 @@
+---
+- name: Generate netplan
+  ansible.builtin.command: netplan generate
+  changed_when: true

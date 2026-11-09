@@ -1,0 +1,76 @@
+---
+- name: Install the config on nodes in maintenance mode
+  ansible.builtin.include_tasks: node.yml
+  loop: "{{ talos_nodes }}"
+  loop_control:
+    loop_var: node
+    label: "{{ node.name }}"
+
+- name: Wait for the control plane to accept the cluster credentials
+  ansible.builtin.command:
+    argv: [timeout, "30", talosctl, --talosconfig, "{{ talosconfig_path }}", -n, "{{ controlplane_ip }}", version, --short]
+  register: cluster_cp_version
+  until: cluster_cp_version.rc == 0
+  retries: 60
+  delay: 10
+  check_mode: false
+  changed_when: false
+
+# etcd can take a few minutes to answer after a reboot (it waits on time
+# sync), so only a node that never lists members counts as not bootstrapped.
+- name: Check whether etcd is bootstrapped
+  ansible.builtin.command:
+    argv: [timeout, "30", talosctl, --talosconfig, "{{ talosconfig_path }}", -n, "{{ controlplane_ip }}", etcd, members]
+  register: cluster_etcd_members
+  until: cluster_etcd_members.rc == 0
+  retries: 12
+  delay: 10
+  check_mode: false
+  changed_when: false
+  failed_when: false
+
+- name: Bootstrap etcd
+  when: cluster_etcd_members.rc != 0
+  block:
+    # etcd waits in Preparing until it is bootstrapped, and gives up as Failed
+    # after about 30 minutes. A Running etcd is already bootstrapped, so any
+    # other state stops here rather than bootstrapping a second time.
+    - name: Wait for etcd to wait for bootstrap
+      ansible.builtin.command:
+        argv: [timeout, "30", talosctl, --talosconfig, "{{ talosconfig_path }}", -n, "{{ controlplane_ip }}", service, etcd]
+      register: cluster_etcd_service
+      until: cluster_etcd_service.stdout is search('STATE\s+(Preparing|Failed)')
+      retries: 30
+      delay: 10
+      check_mode: false
+      changed_when: false
+
+    - name: Bootstrap the cluster
+      ansible.builtin.command:
+        argv: [talosctl, --talosconfig, "{{ talosconfig_path }}", -n, "{{ controlplane_ip }}", bootstrap]
+      changed_when: true
+
+- name: Check for a kubeconfig
+  ansible.builtin.stat:
+    path: "{{ kubeconfig_path }}"
+  register: cluster_kubeconfig
+
+- name: Write a kubeconfig
+  ansible.builtin.command:
+    argv: [timeout, "30", talosctl, --talosconfig, "{{ talosconfig_path }}", -n, "{{ controlplane_ip }}", kubeconfig, "{{ kubeconfig_path }}"]
+  register: cluster_kubeconfig_write
+  until: cluster_kubeconfig_write.rc == 0
+  retries: 60
+  delay: 10
+  when: not cluster_kubeconfig.stat.exists
+  changed_when: true
+
+- name: Wait for every node to register
+  ansible.builtin.command:
+    argv: [kubectl, --kubeconfig, "{{ kubeconfig_path }}", get, nodes, --no-headers, -o, name]
+  register: cluster_nodes
+  until: cluster_nodes.rc == 0 and (cluster_nodes.stdout_lines | length) >= (talos_nodes | length)
+  retries: 60
+  delay: 10
+  check_mode: false
+  changed_when: false

@@ -1,0 +1,8 @@
+---
+exclude_paths:
+  - .kube/
+  - kubernetes/
+  - bootstrap/
+  - openspec/
+  - .github/
+  - ansible/roles/exporters/files/config.yml
