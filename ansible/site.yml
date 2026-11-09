@@ -2,10 +2,9 @@
 - name: Configure the host
   hosts: acemagic
   become: true
-  tasks:
-    - name: Show the pinned Talos version
-      ansible.builtin.debug:
-        var: talos_version
+  roles:
+    - role: base
+      tags: [base]
 
 - name: Configure the cluster
   hosts: acemagic
