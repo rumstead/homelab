@@ -8,7 +8,7 @@
 
 - name: Wait for the control plane to accept the cluster credentials
   ansible.builtin.command:
-    argv: [talosctl, --talosconfig, "{{ talosconfig_path }}", -n, "{{ controlplane_ip }}", version, --short]
+    argv: [timeout, "30", talosctl, --talosconfig, "{{ talosconfig_path }}", -n, "{{ controlplane_ip }}", version, --short]
   register: cluster_cp_version
   until: cluster_cp_version.rc == 0
   retries: 60
@@ -20,7 +20,7 @@
 # sync), so only a node that never lists members counts as not bootstrapped.
 - name: Check whether etcd is bootstrapped
   ansible.builtin.command:
-    argv: [talosctl, --talosconfig, "{{ talosconfig_path }}", -n, "{{ controlplane_ip }}", etcd, members]
+    argv: [timeout, "30", talosctl, --talosconfig, "{{ talosconfig_path }}", -n, "{{ controlplane_ip }}", etcd, members]
   register: cluster_etcd_members
   until: cluster_etcd_members.rc == 0
   retries: 12
@@ -32,13 +32,14 @@
 - name: Bootstrap etcd
   when: cluster_etcd_members.rc != 0
   block:
-    # etcd waits in Preparing until it is bootstrapped. Any other state means
-    # something else is wrong, and bootstrapping then could split the cluster.
+    # etcd waits in Preparing until it is bootstrapped, and gives up as Failed
+    # after about 30 minutes. A Running etcd is already bootstrapped, so any
+    # other state stops here rather than bootstrapping a second time.
     - name: Wait for etcd to wait for bootstrap
       ansible.builtin.command:
-        argv: [talosctl, --talosconfig, "{{ talosconfig_path }}", -n, "{{ controlplane_ip }}", service, etcd]
+        argv: [timeout, "30", talosctl, --talosconfig, "{{ talosconfig_path }}", -n, "{{ controlplane_ip }}", service, etcd]
       register: cluster_etcd_service
-      until: cluster_etcd_service.stdout is search('STATE\s+Preparing')
+      until: cluster_etcd_service.stdout is search('STATE\s+(Preparing|Failed)')
       retries: 30
       delay: 10
       check_mode: false
@@ -56,7 +57,7 @@
 
 - name: Write a kubeconfig
   ansible.builtin.command:
-    argv: [talosctl, --talosconfig, "{{ talosconfig_path }}", -n, "{{ controlplane_ip }}", kubeconfig, "{{ kubeconfig_path }}"]
+    argv: [timeout, "30", talosctl, --talosconfig, "{{ talosconfig_path }}", -n, "{{ controlplane_ip }}", kubeconfig, "{{ kubeconfig_path }}"]
   register: cluster_kubeconfig_write
   until: cluster_kubeconfig_write.rc == 0
   retries: 60

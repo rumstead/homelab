@@ -3,9 +3,9 @@
 # until the node answers either the maintenance API or the cluster credentials.
 - name: Wait for the node to answer, for node {{ node.name }}
   ansible.builtin.shell: |
-    if talosctl --talosconfig {{ talosconfig_path | quote }} -n {{ node.ip }} -e {{ node.ip }} get links --insecure >/dev/null 2>&1; then
+    if timeout 30 talosctl --talosconfig {{ talosconfig_path | quote }} -n {{ node.ip }} -e {{ node.ip }} get links --insecure >/dev/null 2>&1; then
       echo maintenance
-    elif talosctl --talosconfig {{ talosconfig_path | quote }} -n {{ node.ip }} version --short >/dev/null 2>&1; then
+    elif timeout 30 talosctl --talosconfig {{ talosconfig_path | quote }} -n {{ node.ip }} version --short >/dev/null 2>&1; then
       echo configured
     else
       echo unreachable

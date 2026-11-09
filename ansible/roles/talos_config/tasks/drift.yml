@@ -2,7 +2,7 @@
 # A node in maintenance mode has no config yet; cluster_bootstrap applies it.
 - name: Check whether the node is in maintenance mode, for node {{ node.name }}
   ansible.builtin.command:
-    argv: [talosctl, --talosconfig, "{{ talosconfig_path }}", -n, "{{ node.ip }}", -e, "{{ node.ip }}", get, links, --insecure]
+    argv: [timeout, "30", talosctl, --talosconfig, "{{ talosconfig_path }}", -n, "{{ node.ip }}", -e, "{{ node.ip }}", get, links, --insecure]
   register: talos_maintenance
   check_mode: false
   changed_when: false
@@ -10,7 +10,7 @@
 
 - name: Check whether the node accepts the cluster credentials, for node {{ node.name }}
   ansible.builtin.command:
-    argv: [talosctl, --talosconfig, "{{ talosconfig_path }}", -n, "{{ node.ip }}", version, --short]
+    argv: [timeout, "30", talosctl, --talosconfig, "{{ talosconfig_path }}", -n, "{{ node.ip }}", version, --short]
   register: talos_configured
   when: talos_maintenance.rc != 0
   check_mode: false

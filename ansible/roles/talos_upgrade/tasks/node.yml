@@ -1,7 +1,7 @@
 ---
 - name: Read the Talos version, for node {{ node.name }}
   ansible.builtin.command:
-    argv: [talosctl, --talosconfig, "{{ talosconfig_path }}", -n, "{{ node.ip }}", version, --short]
+    argv: [timeout, "30", talosctl, --talosconfig, "{{ talosconfig_path }}", -n, "{{ node.ip }}", version, --short]
   register: talos_upgrade_version
   check_mode: false
   changed_when: false

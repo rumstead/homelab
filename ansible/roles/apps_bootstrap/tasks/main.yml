@@ -108,44 +108,52 @@
   changed_when: true
   no_log: true
 
-- name: Check for the argocd Application
+- name: Check for the Argo CD server
   ansible.builtin.command:
-    argv: [kubectl, --kubeconfig, "{{ kubeconfig_path }}", -n, argocd, get, applications.argoproj.io, argocd, --ignore-not-found, -o, name]
-  register: apps_bootstrap_argocd_app
+    argv: [kubectl, --kubeconfig, "{{ kubeconfig_path }}", -n, argocd, get, deployment, argocd-server, --ignore-not-found, -o, name]
+  register: apps_bootstrap_argocd_server
   check_mode: false
   changed_when: false
-  failed_when:
-    - apps_bootstrap_argocd_app.rc != 0
-    - "'have a resource type' not in apps_bootstrap_argocd_app.stderr"
 
-# Once the argocd Application exists, Argo CD manages itself.
-- name: Install Argo CD
-  when: apps_bootstrap_argocd_app.stdout | length == 0
+# Once the argocd Application exists, Argo CD manages itself; this only puts
+# the first copy in place. The HTTPRoute needs the Gateway API CRDs, which
+# Argo CD installs later, and the argocd Application creates it then.
+- name: Apply the Argo CD bootstrap overlay
+  ansible.builtin.shell: |
+    set -o pipefail
+    kubectl --kubeconfig {{ kubeconfig_path | quote }} kustomize {{ (repo_root ~ '/bootstrap/argocd') | quote }} \
+      | kubectl --kubeconfig {{ kubeconfig_path | quote }} apply --server-side --force-conflicts -f -
+  args:
+    executable: /bin/bash
+  register: apps_bootstrap_argocd_apply
+  when: apps_bootstrap_argocd_server.stdout | length == 0
+  changed_when: true
+  failed_when: >-
+    apps_bootstrap_argocd_apply.rc != 0 and
+    (apps_bootstrap_argocd_apply.stderr_lines
+     | select
+     | reject('search', 'no matches for kind|ensure CRDs are installed first|resource mapping not found')
+     | list | length > 0)
+
+- name: Wait for the Argo CD server
+  ansible.builtin.command:
+    argv: [kubectl, --kubeconfig, "{{ kubeconfig_path }}", -n, argocd, wait, --for=condition=available, --timeout=600s, deployment/argocd-server]
+  check_mode: false
+  changed_when: false
+
+# argocd-initial-admin-secret only exists until the admin password is set
+# here, so a password changed later in the UI is never reset.
+- name: Check for the initial admin password secret
+  ansible.builtin.command:
+    argv: [kubectl, --kubeconfig, "{{ kubeconfig_path }}", -n, argocd, get, secret, argocd-initial-admin-secret, --ignore-not-found, -o, name]
+  register: apps_bootstrap_initial_secret
+  check_mode: false
+  changed_when: false
+
+- name: Set the Argo CD admin password
+  when: apps_bootstrap_initial_secret.stdout | length > 0
   block:
-    # The HTTPRoute needs the Gateway API CRDs, which Argo CD installs later;
-    # the argocd Application creates it then.
-    - name: Apply the Argo CD bootstrap overlay
-      ansible.builtin.shell: |
-        set -o pipefail
-        kubectl --kubeconfig {{ kubeconfig_path | quote }} kustomize {{ (repo_root ~ '/bootstrap/argocd') | quote }} \
-          | kubectl --kubeconfig {{ kubeconfig_path | quote }} apply --server-side --force-conflicts -f -
-      args:
-        executable: /bin/bash
-      register: apps_bootstrap_argocd_apply
-      changed_when: true
-      failed_when: >-
-        apps_bootstrap_argocd_apply.rc != 0 and
-        (apps_bootstrap_argocd_apply.stderr_lines
-         | select
-         | reject('search', 'no matches for kind|ensure CRDs are installed first|resource mapping not found')
-         | list | length > 0)
-
-    - name: Wait for the Argo CD server
-      ansible.builtin.command:
-        argv: [kubectl, --kubeconfig, "{{ kubeconfig_path }}", -n, argocd, wait, --for=condition=available, --timeout=600s, deployment/argocd-server]
-      changed_when: false
-
-    - name: Set the Argo CD admin password
+    - name: Set the admin password
       ansible.builtin.script:
         cmd: argocd-admin-password.py
         executable: /usr/bin/python3
@@ -158,22 +166,31 @@
 
     - name: Remove the initial admin password secret
       ansible.builtin.command:
-        argv: [kubectl, --kubeconfig, "{{ kubeconfig_path }}", -n, argocd, delete, secret, argocd-initial-admin-secret, --ignore-not-found]
+        argv: [kubectl, --kubeconfig, "{{ kubeconfig_path }}", -n, argocd, delete, secret, argocd-initial-admin-secret]
       changed_when: true
 
-    - name: Apply app-of-apps and the argocd Application
-      ansible.builtin.command:
-        argv:
-          - kubectl
-          - --kubeconfig
-          - "{{ kubeconfig_path }}"
-          - apply
-          - -f
-          - "{{ repo_root }}/kubernetes/argocd-apps/argocd/app-of-apps.yaml"
-          - -f
-          - "{{ repo_root }}/kubernetes/argocd-apps/argocd/argocd-app.yaml"
-      when: apps_bootstrap_app_of_apps | bool
-      changed_when: true
+- name: Check for the argocd Application
+  ansible.builtin.command:
+    argv: [kubectl, --kubeconfig, "{{ kubeconfig_path }}", -n, argocd, get, applications.argoproj.io, argocd, --ignore-not-found, -o, name]
+  register: apps_bootstrap_argocd_app
+  check_mode: false
+  changed_when: false
+
+- name: Apply app-of-apps and the argocd Application
+  ansible.builtin.command:
+    argv:
+      - kubectl
+      - --kubeconfig
+      - "{{ kubeconfig_path }}"
+      - apply
+      - -f
+      - "{{ repo_root }}/kubernetes/argocd-apps/argocd/app-of-apps.yaml"
+      - -f
+      - "{{ repo_root }}/kubernetes/argocd-apps/argocd/argocd-app.yaml"
+  when:
+    - apps_bootstrap_app_of_apps | bool
+    - apps_bootstrap_argocd_app.stdout | length == 0
+  changed_when: true
 
 # Cilium enables Gateway API only if its CRDs exist when it starts, and the
 # CRDs arrive through Argo CD after Cilium is already running. Any operator pod
