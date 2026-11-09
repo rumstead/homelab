@@ -56,17 +56,22 @@
 
     - name: Stop on config drift, for node {{ node.name }}
       ansible.builtin.fail:
-        msg: "{{ ['The running config on ' ~ node.name ~ ' differs from the generated one. Re-run with -e talos_apply=true to apply it.'] + talos_drift }}"
+        msg: "{{ [talos_config_drift_message] + talos_drift }}"
+      vars:
+        talos_config_drift_message: >-
+          The running config on {{ node.name }} differs from the generated one.
+          After a talos_version or kubernetes_version bump, run ansible/upgrade.yml.
+          Otherwise re-run with -e talos_config_apply=true to apply it.
       when:
         - talos_drift | length > 0
-        - not talos_apply | bool
+        - not talos_config_apply | bool
 
     - name: Stop when drift is more than the install image, for node {{ node.name }}
       ansible.builtin.fail:
         msg: "{{ ['Only the install image may change here, but ' ~ node.name ~ ' has other drift:'] + talos_drift }}"
       when:
         - talos_drift | length > 0
-        - talos_apply_install_image_only | bool
+        - talos_config_apply_install_image_only | bool
         - >-
           talos_drift | reject('match', '^[-+]\s+image: \S+installer\S*$') | list | length > 0
 
@@ -79,10 +84,10 @@
           - -n
           - "{{ node.ip }}"
           - apply-config
-          - --mode={{ talos_apply_mode }}
+          - --mode={{ talos_config_apply_mode }}
           - --file={{ talos_repo_root }}/talos/{{ node.type }}.yaml
       when:
         - talos_drift | length > 0
-        - talos_apply | bool
+        - talos_config_apply | bool
       changed_when: true
       no_log: true

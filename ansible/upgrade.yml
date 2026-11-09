@@ -1,0 +1,33 @@
+---
+# Upgrades Talos (one node at a time, control plane first) and Kubernetes to
+# talos_version and kubernetes_version from group_vars, then applies the new
+# install image to the machine configs.
+#
+#   ansible-playbook ansible/upgrade.yml -e plan_only=true   # show the plan only
+#   ansible-playbook ansible/upgrade.yml                     # asks before upgrading
+- name: Upgrade the Talos cluster
+  hosts: acemagic
+  become: false
+  vars:
+    plan_only: false
+    confirm: false
+  tasks:
+    - name: Confirm the upgrade
+      ansible.builtin.pause:
+        prompt: "Nodes reboot one at a time while Talos upgrades. Press Enter to continue or Ctrl+C then A to abort"
+      when:
+        - not plan_only | bool
+        - not confirm | bool
+
+    - name: Upgrade Talos and Kubernetes
+      ansible.builtin.include_role:
+        name: talos_upgrade
+
+    # Upgrading never rewrites machine.install.image, so it is applied here.
+    - name: Apply the new install image
+      ansible.builtin.include_role:
+        name: talos_config
+      vars:
+        talos_config_apply: true
+        talos_config_apply_install_image_only: true
+      when: not plan_only | bool

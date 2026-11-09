@@ -4,8 +4,8 @@ talos_installer_image: "factory.talos.dev/metal-installer/{{ talos_schematic }}:
 talos_node_types: "{{ talos_nodes | map(attribute='type') | unique | list }}"
 
 # Apply drift found by the dry-run instead of failing on it.
-talos_apply: false
+talos_config_apply: false
 # no-reboot fails on changes that need a reboot; try rolls back after a timeout.
-talos_apply_mode: no-reboot
+talos_config_apply_mode: no-reboot
 # When true, applying is refused unless every changed line is the install image.
-talos_apply_install_image_only: false
+talos_config_apply_install_image_only: false

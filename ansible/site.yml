@@ -24,3 +24,5 @@
   roles:
     - role: talos_config
       tags: [talos_config]
+    - role: cluster_bootstrap
+      tags: [cluster]

@@ -1,0 +1,25 @@
+---
+- name: Check whether the node is in maintenance mode, for node {{ node.name }}
+  ansible.builtin.command:
+    argv: [talosctl, --talosconfig, "{{ talosconfig_path }}", -n, "{{ node.ip }}", -e, "{{ node.ip }}", get, links, --insecure]
+  register: cluster_maintenance
+  check_mode: false
+  changed_when: false
+  failed_when: false
+
+# Only a node that answers on the unauthenticated maintenance API gets a
+# config here; Talos then installs to disk and reboots.
+- name: Install the machine config, for node {{ node.name }}
+  ansible.builtin.command:
+    argv:
+      - talosctl
+      - -n
+      - "{{ node.ip }}"
+      - -e
+      - "{{ node.ip }}"
+      - apply-config
+      - --insecure
+      - --file={{ talos_repo_root | default(playbook_dir | dirname) }}/talos/{{ node.type }}.yaml
+  when: cluster_maintenance.rc == 0
+  changed_when: true
+  no_log: true

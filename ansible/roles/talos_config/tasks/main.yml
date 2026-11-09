@@ -1,8 +1,8 @@
 ---
 - name: Check the apply mode
   ansible.builtin.assert:
-    that: talos_apply_mode in ['no-reboot', 'try', 'reboot']
-    fail_msg: "talos_apply_mode must be no-reboot, try or reboot, not {{ talos_apply_mode }}"
+    that: talos_config_apply_mode in ['no-reboot', 'try', 'reboot']
+    fail_msg: "talos_config_apply_mode must be no-reboot, try or reboot, not {{ talos_config_apply_mode }}"
     quiet: true
 
 - name: Check that a tmpfs runtime directory is available
