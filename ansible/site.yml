@@ -21,7 +21,6 @@
 - name: Configure the cluster
   hosts: acemagic
   become: false
-  tasks:
-    - name: Show the pinned Kubernetes version
-      ansible.builtin.debug:
-        var: kubernetes_version
+  roles:
+    - role: talos_config
+      tags: [talos_config]

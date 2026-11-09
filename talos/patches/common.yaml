@@ -1,0 +1,21 @@
+machine:
+  install:
+    disk: /dev/vda
+  # The router forwards DNS to AdGuard, which runs in this cluster. The public
+  # fallback lets a rebooting node resolve its time server before AdGuard is
+  # back, otherwise etcd and kubelet wait on time sync forever.
+  network:
+    nameservers:
+      - 192.168.1.1
+      - 1.1.1.1
+  disks:
+    - device: /dev/vdb
+      partitions:
+        - mountpoint: /var/lib/persistent
+cluster:
+  network:
+    cni:
+      name: none
+  # Cilium runs with kubeProxyReplacement, so kube-proxy is not deployed.
+  proxy:
+    disabled: true

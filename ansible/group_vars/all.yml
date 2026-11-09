@@ -38,6 +38,9 @@ talos_nodes:
     ip: "{{ worker_ip }}"
     type: worker
 talos_secrets_file: talos/secrets.sops.yaml
+# Talos version the cluster was created with. Machine config defaults follow it,
+# so it stays fixed when talos_version moves.
+talos_config_contract: v1.12.0
 talosconfig_path: "/home/{{ host_user }}/.talos/config"
 kubeconfig_path: "/home/{{ host_user }}/.kube/config"
 

@@ -1,0 +1,103 @@
+---
+- name: Check the apply mode
+  ansible.builtin.assert:
+    that: talos_apply_mode in ['no-reboot', 'try', 'reboot']
+    fail_msg: "talos_apply_mode must be no-reboot, try or reboot, not {{ talos_apply_mode }}"
+    quiet: true
+
+- name: Check that a tmpfs runtime directory is available
+  ansible.builtin.assert:
+    that: lookup('ansible.builtin.env', 'XDG_RUNTIME_DIR') | length > 0
+    fail_msg: XDG_RUNTIME_DIR is not set; the decrypted Talos secrets must stay on tmpfs.
+    quiet: true
+
+# Decrypted secrets only ever live in this tmpfs directory.
+- name: Create a private directory for the decrypted Talos secrets
+  ansible.builtin.tempfile:
+    state: directory
+    path: "{{ lookup('ansible.builtin.env', 'XDG_RUNTIME_DIR') }}"
+  register: talos_tmp
+  check_mode: false
+  changed_when: false
+
+- name: Generate the Talos configs
+  block:
+    - name: Decrypt the Talos secrets bundle
+      ansible.builtin.command:
+        argv: [sops, -d, --output, "{{ talos_tmp.path }}/secrets.yaml", "{{ talos_repo_root }}/{{ talos_secrets_file }}"]
+      check_mode: false
+      changed_when: false
+      no_log: true
+
+    - name: Generate the machine configs
+      ansible.builtin.command:
+        argv:
+          - talosctl
+          - gen
+          - config
+          - "{{ cluster_name }}"
+          - "https://{{ controlplane_ip }}:6443"
+          - --with-secrets={{ talos_tmp.path }}/secrets.yaml
+          - --kubernetes-version={{ kubernetes_version }}
+          - --talos-version={{ talos_config_contract }}
+          - --install-image={{ talos_installer_image }}
+          - --config-patch=@{{ talos_repo_root }}/talos/patches/common.yaml
+          - --output-types={{ talos_node_types | join(',') }},talosconfig
+          - --output={{ talos_tmp.path }}/out
+          - --force
+      check_mode: false
+      changed_when: false
+      no_log: true
+
+    - name: Install the machine configs
+      ansible.builtin.copy:
+        src: "{{ talos_tmp.path }}/out/{{ item }}.yaml"
+        dest: "{{ talos_repo_root }}/talos/{{ item }}.yaml"
+        remote_src: true
+        mode: "0600"
+      loop: "{{ talos_node_types }}"
+      no_log: true
+      diff: false
+
+    - name: Check for a talosconfig
+      ansible.builtin.stat:
+        path: "{{ talosconfig_path }}"
+      register: talos_talosconfig
+
+    - name: Write a talosconfig
+      when: not talos_talosconfig.stat.exists
+      block:
+        - name: Point the talosconfig at the control plane
+          ansible.builtin.command:
+            argv: [talosctl, --talosconfig, "{{ talos_tmp.path }}/out/talosconfig", config, "{{ item }}", "{{ controlplane_ip }}"]
+          loop: [endpoint, node]
+          changed_when: false
+
+        - name: Create the talosconfig directory
+          ansible.builtin.file:
+            path: "{{ talosconfig_path | dirname }}"
+            state: directory
+            mode: "0700"
+
+        - name: Install the talosconfig
+          ansible.builtin.copy:
+            src: "{{ talos_tmp.path }}/out/talosconfig"
+            dest: "{{ talosconfig_path }}"
+            remote_src: true
+            mode: "0600"
+          no_log: true
+          diff: false
+  always:
+    - name: Remove the decrypted Talos secrets
+      ansible.builtin.file:
+        path: "{{ talos_tmp.path }}"
+        state: absent
+      check_mode: false
+      changed_when: false
+
+- name: Compare each node with its generated config
+  ansible.builtin.include_tasks: drift.yml
+  loop: "{{ talos_nodes }}"
+  loop_control:
+    loop_var: node
+    label: "{{ node.name }}"

@@ -1,0 +1,88 @@
+---
+# A node in maintenance mode has no config yet; cluster_bootstrap applies it.
+- name: Check whether the node is in maintenance mode, for node {{ node.name }}
+  ansible.builtin.command:
+    argv: [talosctl, --talosconfig, "{{ talosconfig_path }}", -n, "{{ node.ip }}", -e, "{{ node.ip }}", get, links, --insecure]
+  register: talos_maintenance
+  check_mode: false
+  changed_when: false
+  failed_when: false
+
+- name: Check whether the node accepts the cluster credentials, for node {{ node.name }}
+  ansible.builtin.command:
+    argv: [talosctl, --talosconfig, "{{ talosconfig_path }}", -n, "{{ node.ip }}", version, --short]
+  register: talos_configured
+  when: talos_maintenance.rc != 0
+  check_mode: false
+  changed_when: false
+  failed_when: false
+
+- name: Warn that the node is unreachable, for node {{ node.name }}
+  ansible.builtin.debug:
+    msg: "{{ node.name }} ({{ node.ip }}) answered neither the maintenance API nor the cluster credentials; skipping its drift check."
+  when:
+    - talos_maintenance.rc != 0
+    - talos_configured.rc != 0
+
+- name: Compare the running and generated config, for node {{ node.name }}
+  when:
+    - talos_maintenance.rc != 0
+    - talos_configured.rc == 0
+  block:
+    - name: Dry-run the generated config, for node {{ node.name }}
+      ansible.builtin.command:
+        argv:
+          - talosctl
+          - --talosconfig
+          - "{{ talosconfig_path }}"
+          - -n
+          - "{{ node.ip }}"
+          - apply-config
+          - --dry-run
+          - --file={{ talos_repo_root }}/talos/{{ node.type }}.yaml
+      register: talos_dry_run
+      check_mode: false
+      changed_when: false
+      no_log: true
+
+    # Changed lines that carry key material are masked before they are shown.
+    - name: Collect the config drift, for node {{ node.name }}
+      ansible.builtin.set_fact:
+        talos_drift: >-
+          {{ (talos_dry_run.stdout_lines + talos_dry_run.stderr_lines)
+             | select('match', '^[-+] ')
+             | map('regex_replace', '((?i:key|crt|token|secret)\w*:)\s.*$', '\1 <masked>')
+             | list }}
+
+    - name: Stop on config drift, for node {{ node.name }}
+      ansible.builtin.fail:
+        msg: "{{ ['The running config on ' ~ node.name ~ ' differs from the generated one. Re-run with -e talos_apply=true to apply it.'] + talos_drift }}"
+      when:
+        - talos_drift | length > 0
+        - not talos_apply | bool
+
+    - name: Stop when drift is more than the install image, for node {{ node.name }}
+      ansible.builtin.fail:
+        msg: "{{ ['Only the install image may change here, but ' ~ node.name ~ ' has other drift:'] + talos_drift }}"
+      when:
+        - talos_drift | length > 0
+        - talos_apply_install_image_only | bool
+        - >-
+          talos_drift | reject('match', '^[-+]\s+image: \S+installer\S*$') | list | length > 0
+
+    - name: Apply the generated config, for node {{ node.name }}
+      ansible.builtin.command:
+        argv:
+          - talosctl
+          - --talosconfig
+          - "{{ talosconfig_path }}"
+          - -n
+          - "{{ node.ip }}"
+          - apply-config
+          - --mode={{ talos_apply_mode }}
+          - --file={{ talos_repo_root }}/talos/{{ node.type }}.yaml
+      when:
+        - talos_drift | length > 0
+        - talos_apply | bool
+      changed_when: true
+      no_log: true
