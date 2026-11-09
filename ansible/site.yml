@@ -5,6 +5,8 @@
   roles:
     - role: base
       tags: [base]
+    - role: crash_recovery
+      tags: [crash_recovery]
 
 - name: Configure the cluster
   hosts: acemagic

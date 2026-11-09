@@ -1,0 +1,21 @@
+---
+- name: Update grub
+  ansible.builtin.command: update-grub
+  changed_when: true
+
+- name: Apply sysctl files
+  ansible.builtin.command: sysctl -p /etc/sysctl.d/90-lockup-panic.conf /etc/sysctl.d/91-hung-task-panic.conf
+  changed_when: true
+
+- name: Reexec systemd
+  ansible.builtin.systemd_service:
+    daemon_reexec: true
+
+- name: Update initramfs
+  ansible.builtin.command: update-initramfs -u -k all
+  changed_when: true
+
+- name: Restart journald
+  ansible.builtin.systemd_service:
+    name: systemd-journald
+    state: restarted
