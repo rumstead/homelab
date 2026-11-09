@@ -2,21 +2,20 @@
 
 Kubernetes homelab on an Ubuntu mini PC using Talos Linux VMs, Argo CD GitOps, Cilium networking, Gateway API ingress, cert-manager PKI, AdGuard DNS, and Prometheus/Grafana monitoring.
 
-Last updated: 2026-03-06
+Last updated: 2026-11-09
 
 ## Overview
 
-- Host: ACEMAGICIAN Kron Mini K1 Mini PC (Ryzen 7 7730U, 32GB RAM, 512GB SSD)
+- Host: ACEMAGICIAN Kron Mini K1 Mini PC (Ryzen 7 5825U, 32GB RAM, 512GB SSD)
 - OS: Ubuntu
 - Cluster: 2-node Talos Kubernetes
   - `talos-controlplane`
   - `talos-worker`
-- GPU passthrough: host GPU exposed to the worker VM
 - Domain: `acemagic.lab`
 
 ## What this repo manages
 
-- VM provisioning and Talos bootstrap scripts
+- Host setup, VM provisioning, Talos bootstrap and upgrades with Ansible
 - Argo CD app-of-apps GitOps structure
 - Cilium networking with L2 announcements and LB IP pool
 - Gateway API gateway and routes
@@ -51,14 +50,37 @@ Gateway configuration: [kubernetes/manifests/gateway/homelab-gateway.yaml](kuber
 - Bootstrap resources: [bootstrap](bootstrap)
 - Argo CD applications: [kubernetes/argocd-apps](kubernetes/argocd-apps)
 - Kubernetes manifests: [kubernetes/manifests](kubernetes/manifests)
-- Automation scripts: [scripts](scripts)
+- Ansible playbooks and roles: [ansible](ansible)
+- Talos secrets bundle (sops) and machine config patches: [talos](talos)
+- Operational scripts: [scripts](scripts)
 - OpenSpec docs: [openspec](openspec)
 
-## Common workflow
+## Set up or rebuild the host
 
-1. Generate Talos configuration: [scripts/gen-talos.sh](scripts/gen-talos.sh)
-2. Create VMs: [scripts/create-vms.sh](scripts/create-vms.sh)
-3. Bootstrap cluster: [scripts/bootstrap-cluster.sh](scripts/bootstrap-cluster.sh)
+[ansible/site.yml](ansible/site.yml) configures the host, creates the Talos VMs, bootstraps the cluster and installs Cilium and Argo CD. Every step checks the current state first, so running it against a working host changes nothing. Run it from the repo root.
+
+1. Install Ubuntu 24.04 over Ethernet.
+2. Restore `~/.config/sops/age/keys.txt` and `~/.ssh` from the backup. The age key decrypts [talos/secrets.sops.yaml](talos/secrets.sops.yaml) and every `*.sops.yaml` secret.
+3. Check DNS with `resolvectl query github.com`. The router forwards DNS to AdGuard, which runs in the cluster, and falls back to its public secondary while AdGuard is down. If the lookup fails, use `sudo resolvectl dns <nic> 1.1.1.1` until the cluster is up.
+4. Install Ansible, clone the repo and run the playbook in `tmux`:
+
+   ```bash
+   sudo apt install -y ansible git
+   git clone git@github.com:rumstead/homelab.git && cd homelab
+   ansible-playbook ansible/site.yml -K
+   ```
+
+5. The first run writes the `br0` bridge to netplan and stops. Reboot, then run the playbook again.
+6. Log the VS Code tunnel in once: `code tunnel user login`.
+
+`ansible-playbook ansible/site.yml --tags <role> --check --diff` previews one role. Each role is tagged with its name; the cluster roles are `talos_config`, `cluster` and `apps`.
+
+## Upgrade Talos and Kubernetes
+
+1. Set `talos_version` and `kubernetes_version` in [ansible/group_vars/all.yml](ansible/group_vars/all.yml) (Renovate opens these PRs).
+2. `ansible-playbook ansible/site.yml --tags base` installs the matching `talosctl` and `kubectl`.
+3. `ansible-playbook ansible/upgrade.yml -e plan_only=true` shows the plan.
+4. `ansible-playbook ansible/upgrade.yml` upgrades the control plane, then the worker, then Kubernetes.
 
 ## Environment notes
 
