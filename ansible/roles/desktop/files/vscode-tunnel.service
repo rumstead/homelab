@@ -1,0 +1,15 @@
+[Unit]
+Description=VS Code Tunnel
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+User=rumstead
+ExecStart=/usr/bin/code tunnel --accept-server-license-terms
+Restart=always
+RestartSec=10
+# helps survive brief network/DNS hiccups at boot
+StartLimitIntervalSec=0
+
+[Install]
+WantedBy=multi-user.target

@@ -11,6 +11,8 @@
       tags: [exporters]
     - role: auto_updates
       tags: [auto_updates]
+    - role: desktop
+      tags: [desktop]
 
 - name: Configure the cluster
   hosts: acemagic
