@@ -1,0 +1,15 @@
+# Action on host shutdown: shutdown (graceful) instead of destroy (kill)
+ON_SHUTDOWN=shutdown
+
+# How long to wait (seconds) for VMs to shut down gracefully
+# 120s gives Kubernetes enough time to drain pods and Prometheus to flush WAL
+SHUTDOWN_TIMEOUT=120
+
+# Number of VMs to shut down in parallel
+PARALLEL_SHUTDOWN=2
+
+# Action on host boot: start VMs that were running before shutdown
+ON_BOOT=start
+
+# Start VMs in a specific order (0 = no specific order, parallel)
+START_DELAY=0

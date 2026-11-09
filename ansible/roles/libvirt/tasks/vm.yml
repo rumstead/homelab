@@ -1,0 +1,48 @@
+---
+# A VM is only ever created when libvirt positively reports it missing. No task
+# here redefines, destroys or undefines a VM.
+- name: Look up the VM {{ vm.name }}
+  ansible.builtin.command: virsh -c qemu:///system dominfo {{ vm.name }}
+  register: libvirt_dominfo
+  check_mode: false
+  changed_when: false
+  failed_when: >-
+    libvirt_dominfo.rc != 0 and
+    'failed to get domain' not in libvirt_dominfo.stderr
+
+- name: Create the VM {{ vm.name }}
+  when: libvirt_dominfo.rc != 0
+  block:
+    - name: Download the Talos ISO for {{ vm.name }}
+      ansible.builtin.get_url:
+        url: "https://factory.talos.dev/image/{{ talos_schematic }}/{{ talos_version }}/metal-amd64.iso"
+        dest: "/var/lib/libvirt/images/talos-{{ talos_version }}-metal-amd64.iso"
+        mode: "0644"
+
+    - name: Install the VM {{ vm.name }}
+      ansible.builtin.command: >-
+        virt-install
+        --connect qemu:///system
+        --name {{ vm.name }}
+        --vcpus {{ vm.vcpus }}
+        --memory {{ vm.memory_mib }}
+        --disk path=/var/lib/libvirt/images/{{ vm.name }}.qcow2,size={{ vm.disk_gb }},format=qcow2,bus=virtio
+        --disk path={{ persistent_host_path }}/disks/{{ vm.name }}-persistent.qcow2,size={{ vm.persistent_gb }},format=qcow2,bus=virtio
+        --cdrom /var/lib/libvirt/images/talos-{{ talos_version }}-metal-amd64.iso
+        --network bridge={{ bridge_name }},mac={{ vm.mac }},model=virtio
+        --osinfo detect=on,name=linux2024
+        --graphics vnc
+        --console pty,target_type=serial
+        --boot hd,cdrom
+        --noautoconsole
+      changed_when: true
+
+    - name: Look up the new VM {{ vm.name }}
+      ansible.builtin.command: virsh -c qemu:///system dominfo {{ vm.name }}
+      register: libvirt_dominfo
+      changed_when: false
+
+- name: Start with the host the VM {{ vm.name }}
+  ansible.builtin.command: virsh -c qemu:///system autostart {{ vm.name }}
+  when: (libvirt_dominfo.stdout | default('')) is regex('Autostart:\s+disable')
+  changed_when: true

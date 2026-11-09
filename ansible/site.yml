@@ -13,6 +13,10 @@
       tags: [auto_updates]
     - role: desktop
       tags: [desktop]
+    - role: network
+      tags: [network]
+    - role: libvirt
+      tags: [libvirt]
 
 - name: Configure the cluster
   hosts: acemagic

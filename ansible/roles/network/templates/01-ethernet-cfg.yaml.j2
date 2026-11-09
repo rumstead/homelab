@@ -1,0 +1,19 @@
+network:
+  version: 2
+  ethernets:
+    {{ host_nic }}:
+      dhcp4: false
+  bridges:
+    {{ bridge_name }}:
+      interfaces:
+        - {{ host_nic }}
+      addresses:
+        - {{ host_ip }}
+      routes:
+        - to: default
+          via: {{ gateway_ip }}
+      nameservers:
+        addresses:
+{% for ns in host_nameservers %}
+          - {{ ns }}
+{% endfor %}

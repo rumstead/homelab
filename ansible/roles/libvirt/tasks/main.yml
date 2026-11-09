@@ -1,0 +1,65 @@
+---
+- name: Install libvirt and QEMU
+  ansible.builtin.apt:
+    name:
+      - bridge-utils
+      - libvirt-clients
+      - libvirt-daemon-system
+      - qemu-system-x86
+      - qemu-utils
+      - virt-manager
+      - virtinst
+      - virtiofsd
+    state: present
+
+- name: Let the host user manage VMs
+  ansible.builtin.user:
+    name: "{{ host_user }}"
+    groups: [libvirt, kvm]
+    append: true
+
+- name: Run libvirtd
+  ansible.builtin.systemd_service:
+    name: libvirtd
+    enabled: true
+    state: started
+
+# libvirt-guests reads this file when it stops, so a change needs no restart.
+# Restarting the service would shut both VMs down.
+- name: Shut VMs down gracefully on host shutdown
+  ansible.builtin.copy:
+    src: libvirt-guests
+    dest: /etc/default/libvirt-guests
+    mode: "0644"
+
+- name: Enable libvirt-guests
+  ansible.builtin.systemd_service:
+    name: libvirt-guests
+    enabled: true
+    state: started
+
+- name: Create the persistent disk directory
+  ansible.builtin.file:
+    path: "{{ persistent_host_path }}/disks"
+    state: directory
+    owner: root
+    group: root
+    mode: "0755"
+
+- name: Create the persistent disks
+  ansible.builtin.command: >-
+    qemu-img create -f qcow2
+    {{ persistent_host_path }}/disks/{{ item.name }}-persistent.qcow2 {{ item.persistent_gb }}G
+  args:
+    creates: "{{ persistent_host_path }}/disks/{{ item.name }}-persistent.qcow2"
+  loop: "{{ vms }}"
+  loop_control:
+    label: "{{ item.name }}"
+
+- name: Create the Talos VMs
+  ansible.builtin.include_tasks: vm.yml
+  loop: "{{ vms }}"
+  loop_control:
+    loop_var: vm
+    label: "{{ vm.name }}"
+  tags: [vms]

@@ -1,0 +1,41 @@
+---
+- name: Check that the host NIC exists
+  ansible.builtin.assert:
+    that: host_nic in ansible_facts.interfaces
+    fail_msg: "{{ host_nic }} not found. Interfaces: {{ ansible_facts.interfaces | join(', ') }}. Set host_nic in ansible/group_vars/all.yml."
+    quiet: true
+
+# Installer files can hold a Wi-Fi password, so only file names are read.
+- name: Find other netplan files that configure the host NIC
+  ansible.builtin.shell: |
+    set -o pipefail
+    grep -lw {{ host_nic | quote }} /etc/netplan/*.yaml | grep -vx /etc/netplan/01-ethernet-cfg.yaml || true
+  args:
+    executable: /bin/bash
+  register: network_conflicts
+  check_mode: false
+  changed_when: false
+  no_log: true
+
+- name: Stop when another netplan file configures the host NIC
+  ansible.builtin.fail:
+    msg: "Remove or rename these netplan files, they also configure {{ host_nic }}: {{ network_conflicts.stdout_lines | join(', ') }}"
+  when: network_conflicts.stdout_lines | length > 0
+
+# netplan is never applied here: a bad bridge config would cut the host off.
+- name: Bridge the host NIC as {{ bridge_name }}
+  ansible.builtin.template:
+    src: 01-ethernet-cfg.yaml.j2
+    dest: /etc/netplan/01-ethernet-cfg.yaml
+    owner: root
+    group: root
+    mode: "0600"
+  notify: Generate netplan
+
+- name: Flush the netplan handler
+  ansible.builtin.meta: flush_handlers
+
+- name: Stop until the bridge exists
+  ansible.builtin.fail:
+    msg: "/etc/netplan/01-ethernet-cfg.yaml is written but {{ bridge_name }} does not exist yet. Reboot (or run `sudo netplan try`), then re-run the playbook."
+  when: bridge_name not in ansible_facts.interfaces
