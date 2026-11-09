@@ -26,3 +26,5 @@
       tags: [talos_config]
     - role: cluster_bootstrap
       tags: [cluster]
+    - role: apps_bootstrap
+      tags: [apps]

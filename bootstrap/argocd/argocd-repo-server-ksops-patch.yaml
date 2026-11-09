@@ -29,7 +29,7 @@ spec:
           image:
             reference: viaductoss/ksops:v4.5.1
             pullPolicy: IfNotPresent
-        # Created out of band by scripts/deploy-apps.sh. Optional so the
+        # Created by the ansible apps_bootstrap role. Optional so the
         # repo-server still starts (without decryption) before the key exists.
         - name: sops-age
           secret:

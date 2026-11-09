@@ -1,0 +1,191 @@
+---
+# Probes use --ignore-not-found: empty output means absent, any error fails.
+- name: Check for the Cilium DaemonSet
+  ansible.builtin.command:
+    argv: [kubectl, --kubeconfig, "{{ kubeconfig_path }}", -n, kube-system, get, daemonset, cilium, --ignore-not-found, -o, name]
+  register: apps_bootstrap_cilium_ds
+  check_mode: false
+  changed_when: false
+
+- name: Check for a Cilium helm release
+  ansible.builtin.command:
+    argv: [helm, --kubeconfig, "{{ kubeconfig_path }}", -n, kube-system, status, cilium]
+  register: apps_bootstrap_cilium_release
+  check_mode: false
+  changed_when: false
+  failed_when:
+    - apps_bootstrap_cilium_release.rc != 0
+    - "'release: not found' not in apps_bootstrap_cilium_release.stderr"
+
+- name: Decide whether Cilium needs installing
+  ansible.builtin.set_fact:
+    apps_bootstrap_install_cilium: >-
+      {{ apps_bootstrap_cilium_ds.stdout | length == 0 and apps_bootstrap_cilium_release.rc != 0 }}
+
+- name: Install Cilium
+  when: apps_bootstrap_install_cilium | bool
+  block:
+    - name: Write the Cilium bootstrap values
+      ansible.builtin.copy:
+        dest: "{{ lookup('ansible.builtin.env', 'XDG_RUNTIME_DIR') }}/cilium-bootstrap-values.yaml"
+        content: "{{ apps_bootstrap_cilium_app.spec.source.helm.valuesObject | combine(apps_bootstrap_cilium_overrides, recursive=true) | to_nice_yaml }}"
+        mode: "0600"
+
+    - name: Install the Cilium chart
+      ansible.builtin.command:
+        argv:
+          - helm
+          - --kubeconfig
+          - "{{ kubeconfig_path }}"
+          - upgrade
+          - --install
+          - cilium
+          - cilium
+          - --repo
+          - "{{ apps_bootstrap_cilium_app.spec.source.repoURL }}"
+          - --version
+          - "{{ apps_bootstrap_cilium_app.spec.source.targetRevision }}"
+          - --namespace
+          - kube-system
+          - --values
+          - "{{ lookup('ansible.builtin.env', 'XDG_RUNTIME_DIR') }}/cilium-bootstrap-values.yaml"
+          - --wait
+          - --timeout
+          - 10m
+      changed_when: true
+
+- name: Check for the Argo CD namespace
+  ansible.builtin.command:
+    argv: [kubectl, --kubeconfig, "{{ kubeconfig_path }}", get, namespace, argocd, --ignore-not-found, -o, name]
+  register: apps_bootstrap_argocd_ns
+  check_mode: false
+  changed_when: false
+
+- name: Create the Argo CD namespace
+  ansible.builtin.command:
+    argv: [kubectl, --kubeconfig, "{{ kubeconfig_path }}", create, namespace, argocd]
+  when: apps_bootstrap_argocd_ns.stdout | length == 0
+  changed_when: true
+
+- name: Check for the age key
+  ansible.builtin.stat:
+    path: "{{ apps_bootstrap_age_key }}"
+    checksum_algorithm: sha256
+  register: apps_bootstrap_age_key_file
+
+- name: Stop when the age key is missing
+  ansible.builtin.fail:
+    msg: "{{ apps_bootstrap_age_key }} is missing. Restore it from the backup; without it Argo CD cannot decrypt any *.sops.yaml secret."
+  when: not apps_bootstrap_age_key_file.stat.exists
+
+# The repo-server decrypts *.sops.yaml files with this key (KSOPS).
+- name: Read the age key stored in the cluster
+  ansible.builtin.shell: |
+    set -o pipefail
+    kubectl --kubeconfig {{ kubeconfig_path | quote }} -n argocd get secret sops-age \
+      --ignore-not-found -o jsonpath='{.data.keys\.txt}' | base64 -d | sha256sum | cut -d' ' -f1
+  args:
+    executable: /bin/bash
+  register: apps_bootstrap_age_secret
+  check_mode: false
+  changed_when: false
+
+- name: Store the age key in the cluster
+  ansible.builtin.shell: |
+    set -o pipefail
+    kubectl --kubeconfig {{ kubeconfig_path | quote }} -n argocd create secret generic sops-age \
+      --from-file=keys.txt={{ apps_bootstrap_age_key | quote }} --dry-run=client -o yaml \
+      | kubectl --kubeconfig {{ kubeconfig_path | quote }} apply -f -
+  args:
+    executable: /bin/bash
+  when: apps_bootstrap_age_secret.stdout != apps_bootstrap_age_key_file.stat.checksum
+  changed_when: true
+  no_log: true
+
+- name: Check for the argocd Application
+  ansible.builtin.command:
+    argv: [kubectl, --kubeconfig, "{{ kubeconfig_path }}", -n, argocd, get, applications.argoproj.io, argocd, --ignore-not-found, -o, name]
+  register: apps_bootstrap_argocd_app
+  check_mode: false
+  changed_when: false
+  failed_when:
+    - apps_bootstrap_argocd_app.rc != 0
+    - "'have a resource type' not in apps_bootstrap_argocd_app.stderr"
+
+# Once the argocd Application exists, Argo CD manages itself.
+- name: Install Argo CD
+  when: apps_bootstrap_argocd_app.stdout | length == 0
+  block:
+    # The HTTPRoute needs the Gateway API CRDs, which Argo CD installs later;
+    # the argocd Application creates it then.
+    - name: Apply the Argo CD bootstrap overlay
+      ansible.builtin.shell: |
+        set -o pipefail
+        kubectl --kubeconfig {{ kubeconfig_path | quote }} kustomize {{ (apps_bootstrap_repo_root ~ '/bootstrap/argocd') | quote }} \
+          | kubectl --kubeconfig {{ kubeconfig_path | quote }} apply --server-side --force-conflicts -f -
+      args:
+        executable: /bin/bash
+      register: apps_bootstrap_argocd_apply
+      changed_when: true
+      failed_when: >-
+        apps_bootstrap_argocd_apply.rc != 0 and
+        (apps_bootstrap_argocd_apply.stderr_lines
+         | select('search', '^error')
+         | reject('search', 'no matches for kind|ensure CRDs are installed first')
+         | list | length > 0)
+
+    - name: Wait for the Argo CD server
+      ansible.builtin.command:
+        argv: [kubectl, --kubeconfig, "{{ kubeconfig_path }}", -n, argocd, wait, --for=condition=available, --timeout=600s, deployment/argocd-server]
+      changed_when: false
+
+    - name: Set the Argo CD admin password
+      ansible.builtin.script:
+        cmd: argocd-admin-password.py
+        executable: /usr/bin/python3
+      environment:
+        ARGOCD_PASSWORD: "{{ apps_bootstrap_argocd_password }}"
+        KUBECONFIG: "{{ kubeconfig_path }}"
+      register: apps_bootstrap_password
+      changed_when: "'changed' in apps_bootstrap_password.stdout"
+      no_log: true
+
+    - name: Remove the initial admin password secret
+      ansible.builtin.command:
+        argv: [kubectl, --kubeconfig, "{{ kubeconfig_path }}", -n, argocd, delete, secret, argocd-initial-admin-secret, --ignore-not-found]
+      changed_when: true
+
+    - name: Apply app-of-apps and the argocd Application
+      ansible.builtin.command:
+        argv:
+          - kubectl
+          - --kubeconfig
+          - "{{ kubeconfig_path }}"
+          - apply
+          - -f
+          - "{{ apps_bootstrap_repo_root }}/kubernetes/argocd-apps/argocd/app-of-apps.yaml"
+          - -f
+          - "{{ apps_bootstrap_repo_root }}/kubernetes/argocd-apps/argocd/argocd-app.yaml"
+      when: apps_bootstrap_app_of_apps | bool
+      changed_when: true
+
+# Cilium enables Gateway API only if its CRDs exist when it starts, and the
+# CRDs arrive through Argo CD after Cilium is already running.
+- name: Restart Cilium once the Gateway API CRDs exist
+  when:
+    - apps_bootstrap_install_cilium | bool
+    - apps_bootstrap_app_of_apps | bool
+  block:
+    - name: Wait for the gateway-api Application to sync
+      ansible.builtin.command:
+        argv: [kubectl, --kubeconfig, "{{ kubeconfig_path }}", -n, argocd, get, applications.argoproj.io, gateway-api, -o, "jsonpath={.status.sync.status}"]
+      register: apps_bootstrap_gateway_api
+      until: apps_bootstrap_gateway_api.stdout == 'Synced'
+      retries: 90
+      delay: 10
+      changed_when: false
+
+    - name: Restart the Cilium operator and agents
+      ansible.builtin.command:
+        argv: [kubectl, --kubeconfig, "{{ kubeconfig_path }}", -n, kube-system, rollout, restart, deployment/cilium-operator, daemonset/cilium]
+      changed_when: true
