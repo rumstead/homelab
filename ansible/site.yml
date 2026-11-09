@@ -1,0 +1,16 @@
+---
+- name: Configure the host
+  hosts: acemagic
+  become: true
+  tasks:
+    - name: Show the pinned Talos version
+      ansible.builtin.debug:
+        var: talos_version
+
+- name: Configure the cluster
+  hosts: acemagic
+  become: false
+  tasks:
+    - name: Show the pinned Kubernetes version
+      ansible.builtin.debug:
+        var: kubernetes_version

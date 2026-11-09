@@ -1,0 +1,7 @@
+---
+exclude_paths:
+  - .kube/
+  - kubernetes/
+  - bootstrap/
+  - openspec/
+  - .github/
