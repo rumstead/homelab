@@ -5,3 +5,4 @@ exclude_paths:
   - bootstrap/
   - openspec/
   - .github/
+  - ansible/roles/exporters/files/config.yml

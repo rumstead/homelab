@@ -1,0 +1,10 @@
+[Unit]
+Description=Daily host apt/snap auto-update
+
+[Timer]
+OnCalendar=daily
+RandomizedDelaySec=30min
+Persistent=true
+
+[Install]
+WantedBy=timers.target

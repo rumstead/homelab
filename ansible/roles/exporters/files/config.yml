@@ -1,0 +1,5 @@
+process_names:
+  # Match processes by command name
+  - name: "{{.Comm}}"
+    cmdline:
+    - '.+'

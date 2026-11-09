@@ -7,6 +7,10 @@
       tags: [base]
     - role: crash_recovery
       tags: [crash_recovery]
+    - role: exporters
+      tags: [exporters]
+    - role: auto_updates
+      tags: [auto_updates]
 
 - name: Configure the cluster
   hosts: acemagic

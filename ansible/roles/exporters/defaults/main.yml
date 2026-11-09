@@ -1,0 +1,19 @@
+---
+exporters_node_base: "https://github.com/prometheus/node_exporter/releases/download/v{{ node_exporter_version }}"
+exporters_process_base: "https://github.com/ncabatoff/process-exporter/releases/download/v{{ process_exporter_version }}"
+
+exporters:
+  - name: node_exporter
+    binary: node_exporter
+    version: "{{ node_exporter_version }}"
+    release: "node_exporter-{{ node_exporter_version }}.linux-amd64"
+    url: "{{ exporters_node_base }}/node_exporter-{{ node_exporter_version }}.linux-amd64.tar.gz"
+    checksum: "sha256:{{ exporters_node_base }}/sha256sums.txt"
+    service: node_exporter
+  - name: process-exporter
+    binary: process-exporter
+    version: "{{ process_exporter_version }}"
+    release: "process-exporter-{{ process_exporter_version }}.linux-amd64"
+    url: "{{ exporters_process_base }}/process-exporter-{{ process_exporter_version }}.linux-amd64.tar.gz"
+    checksum: "sha256:{{ exporters_process_base }}/checksums.txt"
+    service: process_exporter
