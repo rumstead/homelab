@@ -6,6 +6,12 @@
     loop_var: exporter
     label: "{{ exporter.name }}"
 
+- name: Create the process-exporter config directory
+  ansible.builtin.file:
+    path: /etc/process-exporter
+    state: directory
+    mode: "0755"
+
 # copy, not template: the file contains Go template syntax ({{.Comm}}).
 - name: Configure process-exporter
   ansible.builtin.copy:

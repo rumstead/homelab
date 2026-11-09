@@ -18,12 +18,32 @@
     - rasdaemon
     - smartmontools
 
+- name: Create the systemd and grub drop-in directories
+  ansible.builtin.file:
+    path: "{{ item }}"
+    state: directory
+    mode: "0755"
+  loop:
+    - /etc/default/grub.d
+    - /etc/systemd/system.conf.d
+    - /etc/systemd/journald.conf.d
+
 # The panic message goes to EFI pstore before kdump runs.
 - name: Add crash_kexec_post_notifiers to the kernel command line
   ansible.builtin.copy:
     src: 90-crash-capture.cfg
     dest: /etc/default/grub.d/90-crash-capture.cfg
     mode: "0644"
+  notify: Update grub
+
+# A run cut short between writing the drop-in and its handler leaves grub.cfg
+# stale, so the generated file itself is checked.
+- name: Check that grub.cfg carries crash_kexec_post_notifiers
+  ansible.builtin.command: grep -q crash_kexec_post_notifiers=1 /boot/grub/grub.cfg
+  register: crash_recovery_grub_cfg
+  check_mode: false
+  changed_when: crash_recovery_grub_cfg.rc != 0
+  failed_when: crash_recovery_grub_cfg.rc not in [0, 1]
   notify: Update grub
 
 - name: Leave CPU idle states at their defaults

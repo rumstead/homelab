@@ -19,7 +19,7 @@
       - "{{ node.ip }}"
       - apply-config
       - --insecure
-      - --file={{ talos_repo_root | default(playbook_dir | dirname) }}/talos/{{ node.type }}.yaml
+      - --file={{ talos_config_dir }}/{{ node.type }}.yaml
   when: cluster_maintenance.rc == 0
   changed_when: true
   no_log: true

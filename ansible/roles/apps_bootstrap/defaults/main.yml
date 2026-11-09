@@ -1,11 +1,10 @@
 ---
-apps_bootstrap_repo_root: "{{ playbook_dir | dirname }}"
 apps_bootstrap_age_key: "/home/{{ host_user }}/.config/sops/age/keys.txt"
 # Apply app-of-apps (and the argocd self-management app) after Argo CD is up.
 apps_bootstrap_app_of_apps: true
 apps_bootstrap_argocd_password: admin1234
 
-apps_bootstrap_cilium_app: "{{ lookup('ansible.builtin.file', apps_bootstrap_repo_root ~ '/kubernetes/argocd-apps/cilium/cilium-app.yaml') | from_yaml }}"
+apps_bootstrap_cilium_app: "{{ lookup('ansible.builtin.file', repo_root ~ '/kubernetes/argocd-apps/cilium/cilium-app.yaml') | from_yaml }}"
 # Bootstrap Cilium with the Argo CD values minus the parts that need CRDs or
 # namespaces that only exist after Argo CD syncs. Argo CD converges the rest.
 apps_bootstrap_cilium_overrides:

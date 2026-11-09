@@ -24,14 +24,16 @@
   block:
     - name: Decrypt the Talos secrets bundle
       ansible.builtin.command:
-        argv: [sops, -d, --output, "{{ talos_tmp.path }}/secrets.yaml", "{{ talos_repo_root }}/{{ talos_secrets_file }}"]
+        argv: [sops, -d, --output, "{{ talos_tmp.path }}/secrets.yaml", "{{ talos_secrets_file }}"]
       check_mode: false
       changed_when: false
       no_log: true
 
     - name: Generate the machine configs
       ansible.builtin.command:
-        argv:
+        argv: "{{ talos_gen_args + (talos_config_patches | map('regex_replace', '^', '--config-patch=@') | list) }}"
+      vars:
+        talos_gen_args:
           - talosctl
           - gen
           - config
@@ -41,7 +43,6 @@
           - --kubernetes-version={{ kubernetes_version }}
           - --talos-version={{ talos_config_contract }}
           - --install-image={{ talos_installer_image }}
-          - --config-patch=@{{ talos_repo_root }}/talos/patches/common.yaml
           - --output-types={{ talos_node_types | join(',') }},talosconfig
           - --output={{ talos_tmp.path }}/out
           - --force
@@ -52,7 +53,7 @@
     - name: Install the machine configs
       ansible.builtin.copy:
         src: "{{ talos_tmp.path }}/out/{{ item }}.yaml"
-        dest: "{{ talos_repo_root }}/talos/{{ item }}.yaml"
+        dest: "{{ talos_config_dir }}/{{ item }}.yaml"
         remote_src: true
         mode: "0600"
       loop: "{{ talos_node_types }}"

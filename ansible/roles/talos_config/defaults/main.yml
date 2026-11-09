@@ -1,5 +1,4 @@
 ---
-talos_repo_root: "{{ playbook_dir | dirname }}"
 talos_installer_image: "factory.talos.dev/metal-installer/{{ talos_schematic }}:{{ talos_version }}"
 talos_node_types: "{{ talos_nodes | map(attribute='type') | unique | list }}"
 

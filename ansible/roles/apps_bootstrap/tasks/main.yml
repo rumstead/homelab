@@ -121,7 +121,7 @@
     - name: Apply the Argo CD bootstrap overlay
       ansible.builtin.shell: |
         set -o pipefail
-        kubectl --kubeconfig {{ kubeconfig_path | quote }} kustomize {{ (apps_bootstrap_repo_root ~ '/bootstrap/argocd') | quote }} \
+        kubectl --kubeconfig {{ kubeconfig_path | quote }} kustomize {{ (repo_root ~ '/bootstrap/argocd') | quote }} \
           | kubectl --kubeconfig {{ kubeconfig_path | quote }} apply --server-side --force-conflicts -f -
       args:
         executable: /bin/bash
@@ -163,9 +163,9 @@
           - "{{ kubeconfig_path }}"
           - apply
           - -f
-          - "{{ apps_bootstrap_repo_root }}/kubernetes/argocd-apps/argocd/app-of-apps.yaml"
+          - "{{ repo_root }}/kubernetes/argocd-apps/argocd/app-of-apps.yaml"
           - -f
-          - "{{ apps_bootstrap_repo_root }}/kubernetes/argocd-apps/argocd/argocd-app.yaml"
+          - "{{ repo_root }}/kubernetes/argocd-apps/argocd/argocd-app.yaml"
       when: apps_bootstrap_app_of_apps | bool
       changed_when: true
 

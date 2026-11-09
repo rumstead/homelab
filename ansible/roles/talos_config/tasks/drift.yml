@@ -39,7 +39,7 @@
           - "{{ node.ip }}"
           - apply-config
           - --dry-run
-          - --file={{ talos_repo_root }}/talos/{{ node.type }}.yaml
+          - --file={{ talos_config_dir }}/{{ node.type }}.yaml
       register: talos_dry_run
       check_mode: false
       changed_when: false
@@ -85,7 +85,7 @@
           - "{{ node.ip }}"
           - apply-config
           - --mode={{ talos_config_apply_mode }}
-          - --file={{ talos_repo_root }}/talos/{{ node.type }}.yaml
+          - --file={{ talos_config_dir }}/{{ node.type }}.yaml
       when:
         - talos_drift | length > 0
         - talos_config_apply | bool
