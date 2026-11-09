@@ -5,6 +5,7 @@
 #
 #   ansible-playbook ansible/upgrade.yml -e plan_only=true   # show the plan only
 #   ansible-playbook ansible/upgrade.yml                     # asks before upgrading
+#   ansible-playbook ansible/upgrade.yml -e confirm=true     # no prompt
 - name: Upgrade the Talos cluster
   hosts: acemagic
   become: false
@@ -12,12 +13,28 @@
     plan_only: false
     confirm: false
   tasks:
+    - name: Check that the cluster is healthy before upgrading
+      ansible.builtin.command:
+        argv: [talosctl, --talosconfig, "{{ talosconfig_path }}", -n, "{{ controlplane_ip }}", health, --wait-timeout=5m]
+      check_mode: false
+      changed_when: false
+      when: not plan_only | bool
+
+    # A non-interactive run gets an empty answer, which stops the play.
     - name: Confirm the upgrade
       ansible.builtin.pause:
-        prompt: "Nodes reboot one at a time while Talos upgrades. Press Enter to continue or Ctrl+C then A to abort"
+        prompt: "Nodes reboot one at a time while Talos upgrades. Type yes to continue"
+      register: upgrade_confirmation
       when:
         - not plan_only | bool
         - not confirm | bool
+
+    - name: Stop unless the upgrade was confirmed
+      ansible.builtin.assert:
+        that: confirm | bool or (upgrade_confirmation.user_input | default('') | trim) == 'yes'
+        fail_msg: Upgrade not confirmed. Type yes at the prompt, or pass -e confirm=true.
+        quiet: true
+      when: not plan_only | bool
 
     - name: Upgrade Talos and Kubernetes
       ansible.builtin.include_role:

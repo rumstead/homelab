@@ -19,6 +19,8 @@
         dest: "/var/lib/libvirt/images/talos-{{ talos_version }}-metal-amd64.iso"
         mode: "0644"
 
+    # --import (with the ISO as a plain cdrom) skips virt-install's install
+    # phase, which would power the VM off instead of rebooting it.
     - name: Install the VM {{ vm.name }}
       ansible.builtin.command: >-
         virt-install
@@ -28,7 +30,8 @@
         --memory {{ vm.memory_mib }}
         --disk path=/var/lib/libvirt/images/{{ vm.name }}.qcow2,size={{ vm.disk_gb }},format=qcow2,bus=virtio
         --disk path={{ persistent_host_path }}/disks/{{ vm.name }}-persistent.qcow2,size={{ vm.persistent_gb }},format=qcow2,bus=virtio
-        --cdrom /var/lib/libvirt/images/talos-{{ talos_version }}-metal-amd64.iso
+        --disk path=/var/lib/libvirt/images/talos-{{ talos_version }}-metal-amd64.iso,device=cdrom
+        --import
         --network bridge={{ bridge_name }},mac={{ vm.mac }},model=virtio
         --osinfo detect=on,name=linux2024
         --graphics vnc

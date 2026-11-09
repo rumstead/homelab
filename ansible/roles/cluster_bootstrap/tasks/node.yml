@@ -1,14 +1,24 @@
 ---
-- name: Check whether the node is in maintenance mode, for node {{ node.name }}
-  ansible.builtin.command:
-    argv: [talosctl, --talosconfig, "{{ talosconfig_path }}", -n, "{{ node.ip }}", -e, "{{ node.ip }}", get, links, --insecure]
-  register: cluster_maintenance
+# A new VM is still booting the ISO for a while after it is created, so wait
+# until the node answers either the maintenance API or the cluster credentials.
+- name: Wait for the node to answer, for node {{ node.name }}
+  ansible.builtin.shell: |
+    if talosctl --talosconfig {{ talosconfig_path | quote }} -n {{ node.ip }} -e {{ node.ip }} get links --insecure >/dev/null 2>&1; then
+      echo maintenance
+    elif talosctl --talosconfig {{ talosconfig_path | quote }} -n {{ node.ip }} version --short >/dev/null 2>&1; then
+      echo configured
+    else
+      echo unreachable
+    fi
+  register: cluster_node_state
+  until: cluster_node_state.stdout != 'unreachable'
+  retries: 30
+  delay: 10
   check_mode: false
   changed_when: false
-  failed_when: false
 
-# Only a node that answers on the unauthenticated maintenance API gets a
-# config here; Talos then installs to disk and reboots.
+# Only a node on the unauthenticated maintenance API gets a config here; Talos
+# then installs to disk and reboots.
 - name: Install the machine config, for node {{ node.name }}
   ansible.builtin.command:
     argv:
@@ -20,6 +30,5 @@
       - apply-config
       - --insecure
       - --file={{ talos_config_dir }}/{{ node.type }}.yaml
-  when: cluster_maintenance.rc == 0
+  when: cluster_node_state.stdout == 'maintenance'
   changed_when: true
-  no_log: true

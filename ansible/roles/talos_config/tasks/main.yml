@@ -5,13 +5,23 @@
     fail_msg: "talos_config_apply_mode must be no-reboot, try or reboot, not {{ talos_config_apply_mode }}"
     quiet: true
 
-- name: Check that a tmpfs runtime directory is available
-  ansible.builtin.assert:
-    that: lookup('ansible.builtin.env', 'XDG_RUNTIME_DIR') | length > 0
-    fail_msg: XDG_RUNTIME_DIR is not set; the decrypted Talos secrets must stay on tmpfs.
-    quiet: true
+# The secrets bundle and the machine configs generated from it hold every
+# cluster key, so they only ever live on tmpfs.
+- name: Check that the runtime directory is on tmpfs
+  ansible.builtin.command:
+    argv: [stat, -f, -c, "%T", "{{ lookup('ansible.builtin.env', 'XDG_RUNTIME_DIR') | default('/nonexistent', true) }}"]
+  register: talos_runtime_fs
+  check_mode: false
+  changed_when: false
+  failed_when: talos_runtime_fs.stdout != 'tmpfs'
 
-# Decrypted secrets only ever live in this tmpfs directory.
+- name: Create the directory for the generated machine configs
+  ansible.builtin.file:
+    path: "{{ talos_config_dir }}"
+    state: directory
+    mode: "0700"
+  check_mode: false
+
 - name: Create a private directory for the decrypted Talos secrets
   ansible.builtin.tempfile:
     state: directory
@@ -27,7 +37,6 @@
         argv: [sops, -d, --output, "{{ talos_tmp.path }}/secrets.yaml", "{{ talos_secrets_file }}"]
       check_mode: false
       changed_when: false
-      no_log: true
 
     - name: Generate the machine configs
       ansible.builtin.command:
@@ -48,8 +57,9 @@
           - --force
       check_mode: false
       changed_when: false
-      no_log: true
 
+    # Regenerated on every run (also in check mode) so the drift check always
+    # compares against the current versions and patches.
     - name: Install the machine configs
       ansible.builtin.copy:
         src: "{{ talos_tmp.path }}/out/{{ item }}.yaml"
@@ -57,7 +67,8 @@
         remote_src: true
         mode: "0600"
       loop: "{{ talos_node_types }}"
-      no_log: true
+      check_mode: false
+      changed_when: false
       diff: false
 
     - name: Check for a talosconfig
@@ -86,7 +97,6 @@
             dest: "{{ talosconfig_path }}"
             remote_src: true
             mode: "0600"
-          no_log: true
           diff: false
   always:
     - name: Remove the decrypted Talos secrets

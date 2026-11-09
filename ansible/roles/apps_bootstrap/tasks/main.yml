@@ -53,6 +53,11 @@
           - --timeout
           - 10m
       changed_when: true
+  always:
+    - name: Remove the Cilium bootstrap values
+      ansible.builtin.file:
+        path: "{{ lookup('ansible.builtin.env', 'XDG_RUNTIME_DIR') }}/cilium-bootstrap-values.yaml"
+        state: absent
 
 - name: Check for the Argo CD namespace
   ansible.builtin.command:
@@ -78,7 +83,8 @@
     msg: "{{ apps_bootstrap_age_key }} is missing. Restore it from the backup; without it Argo CD cannot decrypt any *.sops.yaml secret."
   when: not apps_bootstrap_age_key_file.stat.exists
 
-# The repo-server decrypts *.sops.yaml files with this key (KSOPS).
+# The repo-server decrypts *.sops.yaml files with this key (KSOPS). Server-side
+# apply keeps the key out of the last-applied-configuration annotation.
 - name: Read the age key stored in the cluster
   ansible.builtin.shell: |
     set -o pipefail
@@ -95,7 +101,7 @@
     set -o pipefail
     kubectl --kubeconfig {{ kubeconfig_path | quote }} -n argocd create secret generic sops-age \
       --from-file=keys.txt={{ apps_bootstrap_age_key | quote }} --dry-run=client -o yaml \
-      | kubectl --kubeconfig {{ kubeconfig_path | quote }} apply -f -
+      | kubectl --kubeconfig {{ kubeconfig_path | quote }} apply --server-side --force-conflicts -f -
   args:
     executable: /bin/bash
   when: apps_bootstrap_age_secret.stdout != apps_bootstrap_age_key_file.stat.checksum
@@ -130,8 +136,8 @@
       failed_when: >-
         apps_bootstrap_argocd_apply.rc != 0 and
         (apps_bootstrap_argocd_apply.stderr_lines
-         | select('search', '^error')
-         | reject('search', 'no matches for kind|ensure CRDs are installed first')
+         | select
+         | reject('search', 'no matches for kind|ensure CRDs are installed first|resource mapping not found')
          | list | length > 0)
 
     - name: Wait for the Argo CD server
@@ -147,7 +153,7 @@
         ARGOCD_PASSWORD: "{{ apps_bootstrap_argocd_password }}"
         KUBECONFIG: "{{ kubeconfig_path }}"
       register: apps_bootstrap_password
-      changed_when: "'changed' in apps_bootstrap_password.stdout"
+      changed_when: apps_bootstrap_password.stdout | trim == 'changed'
       no_log: true
 
     - name: Remove the initial admin password secret
@@ -170,11 +176,10 @@
       changed_when: true
 
 # Cilium enables Gateway API only if its CRDs exist when it starts, and the
-# CRDs arrive through Argo CD after Cilium is already running.
+# CRDs arrive through Argo CD after Cilium is already running. Any operator pod
+# older than the Gateway CRD started without Gateway API and gets restarted.
 - name: Restart Cilium once the Gateway API CRDs exist
-  when:
-    - apps_bootstrap_install_cilium | bool
-    - apps_bootstrap_app_of_apps | bool
+  when: apps_bootstrap_app_of_apps | bool
   block:
     - name: Wait for the gateway-api Application to sync
       ansible.builtin.command:
@@ -184,8 +189,41 @@
       retries: 90
       delay: 10
       changed_when: false
+      when: apps_bootstrap_install_cilium | bool
 
+    - name: Read when the Gateway CRD was created
+      ansible.builtin.command:
+        argv:
+          - kubectl
+          - --kubeconfig={{ kubeconfig_path }}
+          - get
+          - crd
+          - gateways.gateway.networking.k8s.io
+          - --ignore-not-found
+          - -o=jsonpath={.metadata.creationTimestamp}
+      register: apps_bootstrap_gateway_crd
+      check_mode: false
+      changed_when: false
+
+    - name: Read when the Cilium operator pods started
+      ansible.builtin.command:
+        argv:
+          - kubectl
+          - --kubeconfig={{ kubeconfig_path }}
+          - --namespace=kube-system
+          - get
+          - pods
+          - --selector=io.cilium/app=operator
+          - -o=jsonpath={.items[*].status.startTime}
+      register: apps_bootstrap_operator_starts
+      check_mode: false
+      changed_when: false
+
+    # RFC 3339 UTC timestamps compare correctly as strings.
     - name: Restart the Cilium operator and agents
       ansible.builtin.command:
         argv: [kubectl, --kubeconfig, "{{ kubeconfig_path }}", -n, kube-system, rollout, restart, deployment/cilium-operator, daemonset/cilium]
+      when:
+        - apps_bootstrap_gateway_crd.stdout | length > 0
+        - apps_bootstrap_operator_starts.stdout.split() | select('lt', apps_bootstrap_gateway_crd.stdout) | list | length > 0
       changed_when: true

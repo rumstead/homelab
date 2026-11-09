@@ -16,10 +16,15 @@
   check_mode: false
   changed_when: false
 
+# etcd can take a few minutes to answer after a reboot (it waits on time
+# sync), so only a node that never lists members counts as not bootstrapped.
 - name: Check whether etcd is bootstrapped
   ansible.builtin.command:
     argv: [talosctl, --talosconfig, "{{ talosconfig_path }}", -n, "{{ controlplane_ip }}", etcd, members]
   register: cluster_etcd_members
+  until: cluster_etcd_members.rc == 0
+  retries: 12
+  delay: 10
   check_mode: false
   changed_when: false
   failed_when: false
@@ -58,7 +63,6 @@
   delay: 10
   when: not cluster_kubeconfig.stat.exists
   changed_when: true
-  no_log: true
 
 - name: Wait for every node to register
   ansible.builtin.command:

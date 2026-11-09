@@ -17,6 +17,14 @@
   changed_when: false
   failed_when: false
 
+- name: Stop when a node to apply to is unreachable, for node {{ node.name }}
+  ansible.builtin.fail:
+    msg: "{{ node.name }} ({{ node.ip }}) answered neither the maintenance API nor the cluster credentials, so its config cannot be applied."
+  when:
+    - talos_config_apply | bool
+    - talos_maintenance.rc != 0
+    - talos_configured.rc != 0
+
 - name: Warn that the node is unreachable, for node {{ node.name }}
   ansible.builtin.debug:
     msg: "{{ node.name }} ({{ node.ip }}) answered neither the maintenance API nor the cluster credentials; skipping its drift check."
@@ -43,14 +51,18 @@
       register: talos_dry_run
       check_mode: false
       changed_when: false
+      failed_when: >-
+        talos_dry_run.rc != 0 or
+        ('Config diff:' not in talos_dry_run.stderr and 'Config diff:' not in talos_dry_run.stdout)
       no_log: true
 
-    # Changed lines that carry key material are masked before they are shown.
+    # Every changed line except the ---/+++ file headers, with the values of
+    # key material masked before they are shown.
     - name: Collect the config drift, for node {{ node.name }}
       ansible.builtin.set_fact:
         talos_drift: >-
           {{ (talos_dry_run.stdout_lines + talos_dry_run.stderr_lines)
-             | select('match', '^[-+] ')
+             | select('match', '^[-+](?![-+]{2} )')
              | map('regex_replace', '((?i:key|crt|token|secret)\w*:)\s.*$', '\1 <masked>')
              | list }}
 
@@ -90,4 +102,3 @@
         - talos_drift | length > 0
         - talos_config_apply | bool
       changed_when: true
-      no_log: true

@@ -43,7 +43,6 @@
     enabled: true
     state: started
 
-# sshd is socket activated and reads its config on every connection.
 - name: Enable SSH X11 forwarding
   ansible.builtin.lineinfile:
     path: /etc/ssh/sshd_config
@@ -56,6 +55,7 @@
       value: "no"
   loop_control:
     label: "{{ item.key }}"
+  notify: Reload ssh
 
 - name: Install the VS Code tunnel service
   ansible.builtin.copy:

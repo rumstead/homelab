@@ -70,7 +70,7 @@ Gateway configuration: [kubernetes/manifests/gateway/homelab-gateway.yaml](kuber
    ansible-playbook ansible/site.yml -K
    ```
 
-5. The first run writes the `br0` bridge to netplan and stops. Reboot, then run the playbook again.
+5. If the run stops naming an installer netplan file (such as `/etc/netplan/50-cloud-init.yaml`) that also configures the NIC, delete that file and run it again. The run then writes the `br0` bridge to netplan and stops: reboot, then run the playbook again.
 6. Log the VS Code tunnel in once: `code tunnel user login`.
 
 `ansible-playbook ansible/site.yml --tags <role> --check --diff` previews one role. Each role is tagged with its name; the cluster roles are `talos_config`, `cluster` and `apps`.

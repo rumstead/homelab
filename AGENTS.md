@@ -53,7 +53,7 @@ Run every playbook from the repo root (`ansible.cfg` lives there). Each role is 
   - Cluster roles: `talos_config` (generates machine configs from the secrets bundle, fails on drift unless `-e talos_config_apply=true`), `cluster_bootstrap` (tag `cluster`), `apps_bootstrap` (tag `apps`: Cilium and Argo CD on a fresh cluster)
 - Talos/Kubernetes in-place upgrade: [ansible/upgrade.yml](ansible/upgrade.yml) (`-e plan_only=true` previews)
 - Pinned versions, IPs, MACs and VM sizes: [ansible/group_vars/all.yml](ansible/group_vars/all.yml)
-- Talos secrets bundle (sops) and machine config patch: [talos/secrets.sops.yaml](talos/secrets.sops.yaml), [talos/patches/common.yaml](talos/patches/common.yaml). Generated `talos/controlplane.yaml` and `talos/worker.yaml` are gitignored.
+- Talos secrets bundle (sops) and machine config patch: [talos/secrets.sops.yaml](talos/secrets.sops.yaml), [talos/patches/common.yaml](talos/patches/common.yaml). The `talos_config` role decrypts it and generates the machine configs on tmpfs (`$XDG_RUNTIME_DIR/talos-<cluster>`) on every run; they are never written to the repo.
 - Prometheus cleanup helper: [scripts/cleanup-prometheus.sh](scripts/cleanup-prometheus.sh)
 
 ## Canonical configuration values

@@ -41,8 +41,8 @@ repo_root: "{{ playbook_dir | dirname }}"
 talos_secrets_file: "{{ repo_root }}/talos/secrets.sops.yaml"
 talos_config_patches:
   - "{{ repo_root }}/talos/patches/common.yaml"
-# Generated machine configs (gitignored).
-talos_config_dir: "{{ repo_root }}/talos"
+# Generated machine configs hold every cluster key, so they live on tmpfs.
+talos_config_dir: "{{ lookup('ansible.builtin.env', 'XDG_RUNTIME_DIR') }}/talos-{{ cluster_name }}"
 # Talos version the cluster was created with. Machine config defaults follow it,
 # so it stays fixed when talos_version moves.
 talos_config_contract: v1.12.0
