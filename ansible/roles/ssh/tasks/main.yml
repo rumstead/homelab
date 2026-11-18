@@ -1,0 +1,20 @@
+---
+- name: Check that the host user has an SSH key
+  ansible.builtin.stat:
+    path: "/home/{{ host_user }}/.ssh/authorized_keys"
+  register: ssh_authorized_keys
+
+- name: Stop before turning off password logins without a key
+  ansible.builtin.assert:
+    that: ssh_authorized_keys.stat.exists and ssh_authorized_keys.stat.size > 0
+    fail_msg: "/home/{{ host_user }}/.ssh/authorized_keys is empty or missing, so key-only SSH would lock {{ host_user }} out."
+    quiet: true
+
+- name: Allow key-only SSH logins and no root logins
+  ansible.builtin.copy:
+    src: 10-hardening.conf
+    dest: /etc/ssh/sshd_config.d/10-hardening.conf
+    owner: root
+    group: root
+    mode: "0644"
+  notify: Reload sshd

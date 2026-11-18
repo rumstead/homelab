@@ -30,6 +30,13 @@
     mode: "0755"
   notify: Restart xrdp
 
+- name: Set the xrdp listen address
+  ansible.builtin.lineinfile:
+    path: /etc/xrdp/xrdp.ini
+    regexp: '^port=(tcp://[^:]*:)?3389$'
+    line: "port={{ desktop_xrdp_port }}"
+  notify: Restart xrdp
+
 - name: Let xrdp read the TLS key
   ansible.builtin.user:
     name: xrdp

@@ -1,0 +1,11 @@
+[Unit]
+Description=Weekly host reboot window
+
+# Early Sunday morning in US time zones. A missed window waits for the next
+# one instead of rebooting right after boot.
+[Timer]
+OnCalendar=Sun *-*-* 09:00:00 UTC
+Persistent=false
+
+[Install]
+WantedBy=timers.target

@@ -1,0 +1,9 @@
+---
+# sops-encrypted vars file with `ubuntu_pro_token`, read only while the host
+# is not attached.
+ubuntu_pro_secrets_file: "{{ playbook_dir }}/secrets.sops.yaml"
+
+ubuntu_pro_services:
+  - esm-apps
+  - esm-infra
+  - livepatch

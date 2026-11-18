@@ -5,6 +5,10 @@
   roles:
     - role: base
       tags: [base]
+    - role: ubuntu_pro
+      tags: [ubuntu_pro]
+    - role: ssh
+      tags: [ssh]
     - role: crash_recovery
       tags: [crash_recovery]
     - role: exporters

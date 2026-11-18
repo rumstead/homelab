@@ -14,12 +14,11 @@ base_packages:
   - git
   - gnupg
   - libfuse2t64
-  - linux-generic-hwe-24.04
   - net-tools
   - openssh-server
   - podman
   - python3-bcrypt
-  - python3.12-venv
+  - python3-venv
   - tmux
 
 base_snaps:

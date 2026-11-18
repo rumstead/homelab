@@ -72,6 +72,7 @@ Gateway configuration: [kubernetes/manifests/gateway/homelab-gateway.yaml](kuber
 
 5. If the run stops naming an installer netplan file (such as `/etc/netplan/50-cloud-init.yaml`) that also configures the NIC, delete that file and run it again. The run then writes the `br0` bridge to netplan and stops: reboot, then run the playbook again.
 6. Log the VS Code tunnel in once: `code tunnel user login`.
+7. xrdp listens on loopback only: connect with `ssh -L 3389:127.0.0.1:3389 acemagic` and point the RDP client at `localhost`.
 
 `ansible-playbook ansible/site.yml --tags <role> --check --diff` previews one role. Each role is tagged with its name; the cluster roles are `talos_config`, `cluster` and `apps`.
 

@@ -1,0 +1,64 @@
+---
+- name: Check whether the host is attached to Ubuntu Pro
+  ansible.builtin.command: pro api u.pro.status.is_attached.v1
+  register: ubuntu_pro_attached
+  changed_when: false
+  check_mode: false
+
+- name: Attach the host to Ubuntu Pro
+  when: not (ubuntu_pro_attached.stdout | from_json).data.attributes.is_attached
+  block:
+    - name: Check for the Ubuntu Pro secrets file
+      ansible.builtin.stat:
+        path: "{{ ubuntu_pro_secrets_file }}"
+      delegate_to: localhost
+      become: false
+      register: ubuntu_pro_secrets
+
+    - name: Stop when there is no Ubuntu Pro token
+      ansible.builtin.fail:
+        msg: >-
+          {{ ubuntu_pro_secrets_file }} is missing. Create it with
+          `sops {{ ubuntu_pro_secrets_file }}` and set `ubuntu_pro_token` to the
+          token from https://ubuntu.com/pro/dashboard.
+      when: not ubuntu_pro_secrets.stat.exists
+
+    - name: Read the Ubuntu Pro token
+      community.sops.load_vars:
+        file: "{{ ubuntu_pro_secrets_file }}"
+      no_log: true
+
+    # The token goes through a root-only file on tmpfs so it never shows up in
+    # the process list.
+    - name: Write the attach config
+      ansible.builtin.copy:
+        dest: /run/ubuntu-pro-attach.yaml
+        owner: root
+        group: root
+        mode: "0600"
+        content: "{{ {'token': ubuntu_pro_token, 'enable_services': ubuntu_pro_services} | to_nice_yaml }}"
+      no_log: true
+
+    - name: Attach
+      ansible.builtin.command: pro attach --attach-config /run/ubuntu-pro-attach.yaml
+      changed_when: true
+
+  always:
+    - name: Remove the attach config
+      ansible.builtin.file:
+        path: /run/ubuntu-pro-attach.yaml
+        state: absent
+
+- name: Read the Ubuntu Pro service status
+  ansible.builtin.command: pro status --format json
+  register: ubuntu_pro_status
+  changed_when: false
+  check_mode: false
+
+- name: Enable the Ubuntu Pro services
+  ansible.builtin.command: "pro enable {{ item }} --assume-yes"
+  loop: >-
+    {{ ubuntu_pro_services | difference((ubuntu_pro_status.stdout | from_json).services
+       | selectattr('status', 'defined') | selectattr('status', 'equalto', 'enabled')
+       | map(attribute='name') | list) }}
+  changed_when: true
