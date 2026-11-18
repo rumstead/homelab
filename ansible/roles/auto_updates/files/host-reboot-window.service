@@ -1,0 +1,7 @@
+[Unit]
+Description=Reboot the host when installed updates need it
+After=host-auto-update.service
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/bin/host-reboot-window.sh

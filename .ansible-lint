@@ -6,3 +6,4 @@ exclude_paths:
   - openspec/
   - .github/
   - ansible/roles/exporters/files/config.yml
+  - ansible/secrets.sops.yaml

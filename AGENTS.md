@@ -49,7 +49,7 @@ Use this file as the operational context for repository changes.
 Run every playbook from the repo root (`ansible.cfg` lives there). Each role is idempotent and tagged with its name; `--check --diff` previews a role against the live host.
 
 - Host, VMs and cluster bootstrap: [ansible/site.yml](ansible/site.yml)
-  - Host roles: `base` (apt repos, packages, snaps, cluster CLIs), `crash_recovery` (kdump, watchdog, lockup panics, reset-reason logging), `exporters`, `auto_updates`, `desktop`, `network` (`br0` netplan, never applied live), `libvirt` (libvirt-guests, persistent disks, Talos VMs created only when missing)
+  - Host roles: `base` (apt repos, packages, snaps, cluster CLIs), `ubuntu_pro` (attaches with the token in `ansible/secrets.sops.yaml`, enables ESM and Livepatch), `ssh` (key-only logins, no root), `crash_recovery` (kdump, watchdog, lockup panics, reset-reason logging), `exporters`, `auto_updates` (daily apt and snap updates, Sunday 09:00 UTC reboot when an update needs one), `desktop`, `network` (`br0` netplan, never applied live), `libvirt` (libvirt-guests, persistent disks, Talos VMs created only when missing)
   - Cluster roles: `talos_config` (generates machine configs from the secrets bundle, fails on drift unless `-e talos_config_apply=true`), `cluster_bootstrap` (tag `cluster`), `apps_bootstrap` (tag `apps`: Cilium and Argo CD on a fresh cluster)
 - Talos/Kubernetes in-place upgrade: [ansible/upgrade.yml](ansible/upgrade.yml) (`-e plan_only=true` previews)
 - Pinned versions, IPs, MACs and VM sizes: [ansible/group_vars/all.yml](ansible/group_vars/all.yml)
@@ -140,7 +140,7 @@ Run every playbook from the repo root (`ansible.cfg` lives there). Each role is 
 
 ## Secrets (SOPS)
 
-- Never commit plaintext Secrets. Encrypt them as `*.sops.yaml` with `sops encrypt -i <file>`; rules live in [.sops.yaml](.sops.yaml) (age; Kubernetes files encrypt `data`/`stringData` only, `talos/*.sops.yaml` encrypts every value).
+- Never commit plaintext Secrets. Encrypt them as `*.sops.yaml` with `sops encrypt -i <file>`; rules live in [.sops.yaml](.sops.yaml) (age; Kubernetes files encrypt `data`/`stringData` only, `talos/*.sops.yaml` and `ansible/*.sops.yaml` encrypt every value).
 - Argo CD decrypts at render time with KSOPS: [bootstrap/argocd/argocd-repo-server-ksops-patch.yaml](bootstrap/argocd/argocd-repo-server-ksops-patch.yaml).
 - A directory with encrypted files needs a `kustomization.yaml` that lists a `ksops-generator.yaml` under `generators`. See [kubernetes/manifests/external-dns](kubernetes/manifests/external-dns).
 - age private key: `~/.config/sops/age/keys.txt` on the host, and the `argocd/sops-age` Secret in the cluster (created by the `apps_bootstrap` role). Keep an offline backup; losing it means re-creating every secret.
@@ -149,7 +149,7 @@ Run every playbook from the repo root (`ansible.cfg` lives there). Each role is 
 
 - Desktop: XFCE4 (lightweight)
 - Display manager: LightDM
-- Remote desktop: xrdp on port `3389`
+- Remote desktop: xrdp on `127.0.0.1:3389`, reached through `ssh -L 3389:127.0.0.1:3389`
 - SSH X11 forwarding: enabled
 - Ansible role: `desktop`
 

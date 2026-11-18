@@ -1,0 +1,5 @@
+---
+# Checks the full config first so a bad file never reaches the running sshd.
+- name: Reload sshd
+  ansible.builtin.shell: sshd -t && systemctl try-reload-or-restart ssh.service
+  changed_when: true

@@ -1,0 +1,4 @@
+---
+# xrdp listens on loopback only. Connect with
+# `ssh -L 3389:127.0.0.1:3389 <host>` and point the RDP client at localhost.
+desktop_xrdp_port: "tcp://.:3389"

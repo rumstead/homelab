@@ -1,13 +1,16 @@
 ---
-- name: Install the host auto-update script
+- name: Install the host update and reboot scripts
   ansible.builtin.copy:
-    src: host-auto-update.sh
-    dest: /usr/local/bin/host-auto-update.sh
+    src: "{{ item }}"
+    dest: "/usr/local/bin/{{ item }}"
     owner: root
     group: root
     mode: "0755"
+  loop:
+    - host-auto-update.sh
+    - host-reboot-window.sh
 
-- name: Install the host auto-update service and timer
+- name: Install the host update and reboot units
   ansible.builtin.copy:
     src: "{{ item }}"
     dest: "/etc/systemd/system/{{ item }}"
@@ -15,11 +18,17 @@
   loop:
     - host-auto-update.service
     - host-auto-update.timer
+    - host-reboot-window.service
+    - host-reboot-window.timer
   register: auto_updates_units
 
-- name: Run apt and snap updates daily
+- name: Run apt and snap updates daily and reboot weekly when they need it
   ansible.builtin.systemd_service:
-    name: host-auto-update.timer
+    name: "{{ item }}"
     enabled: true
     state: started
     daemon_reload: "{{ auto_updates_units.changed }}"
+  loop:
+    - host-auto-update.timer
+    - host-reboot-window.timer
+  ignore_errors: "{{ ansible_check_mode and auto_updates_units.changed }}"  # noqa: ignore-errors
