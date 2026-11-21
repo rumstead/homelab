@@ -69,8 +69,8 @@
     mode: "0644"
   notify: Reexec systemd
 
-# Ubuntu blacklists sp5100_tco and systemd-modules-load honors that, so an
-# early-boot service loads it by name instead.
+# Ubuntu blacklists the watchdog drivers and systemd-modules-load honors that,
+# so an early-boot service loads the driver by name instead.
 - name: Keep sp5100_tco out of modules-load.d
   ansible.builtin.file:
     path: /etc/modules-load.d/sp5100_tco.conf
@@ -83,30 +83,47 @@
     state: absent
   notify: Update initramfs
 
-- name: Install the sp5100_tco watchdog service
-  ansible.builtin.copy:
-    src: sp5100-tco-watchdog.service
-    dest: /etc/systemd/system/sp5100-tco-watchdog.service
+- name: Remove the sp5100_tco watchdog service
+  ansible.builtin.file:
+    path: "{{ item }}"
+    state: absent
+  loop:
+    - /etc/systemd/system/sysinit.target.wants/sp5100-tco-watchdog.service
+    - /etc/systemd/system/sp5100-tco-watchdog.service
+  register: crash_recovery_sp5100_removed
+
+- name: Install the hardware watchdog service
+  ansible.builtin.template:
+    src: hardware-watchdog.service.j2
+    dest: /etc/systemd/system/hardware-watchdog.service
     mode: "0644"
-  register: crash_recovery_sp5100_unit
+  register: crash_recovery_watchdog_unit
 
-- name: Look for the AMD FCH SMBus device that provides the watchdog
-  ansible.builtin.command: lspci -n -d 1022:790b
-  register: crash_recovery_fch
-  check_mode: false
-  changed_when: false
-
-- name: Enable the sp5100_tco watchdog service
+# The driver fails to load when the chipset has no TCO timer or the firmware
+# locks it, so the device node decides whether the service stays enabled.
+- name: Load the hardware watchdog driver
   ansible.builtin.systemd_service:
-    name: sp5100-tco-watchdog.service
+    name: hardware-watchdog.service
     enabled: true
-    state: "{{ 'started' if crash_recovery_fch.stdout | length > 0 else omit }}"
-    daemon_reload: "{{ crash_recovery_sp5100_unit.changed }}"
+    state: started
+    daemon_reload: "{{ crash_recovery_watchdog_unit.changed or crash_recovery_sp5100_removed.changed }}"
+  failed_when: false
+
+- name: Check for the hardware watchdog device
+  ansible.builtin.stat:
+    path: /dev/watchdog0
+  register: crash_recovery_watchdog_dev
+
+- name: Disable the hardware watchdog service when there is no device
+  ansible.builtin.systemd_service:
+    name: hardware-watchdog.service
+    enabled: false
+  when: not crash_recovery_watchdog_dev.stat.exists
 
 - name: Warn that there is no hardware watchdog
   ansible.builtin.debug:
-    msg: No AMD FCH SMBus device (1022:790b), so sp5100_tco has nothing to drive and the host has no hardware watchdog.
-  when: crash_recovery_fch.stdout | length == 0
+    msg: "{{ crash_recovery_watchdog_module }} found no watchdog, so the host has no hardware watchdog."
+  when: not crash_recovery_watchdog_dev.stat.exists
 
 - name: Keep the SATA link out of low-power states
   ansible.builtin.copy:
@@ -160,23 +177,38 @@
 
 # The decoder lives at a root-owned path so the boot service never runs a
 # file from a user-writable directory.
-- name: Install the AMD reset reason decoder
-  ansible.builtin.copy:
-    src: amd-reset-reason
-    dest: /usr/local/sbin/amd-reset-reason
-    owner: root
-    group: root
-    mode: "0755"
+- name: Log the AMD reset reason on every boot
+  when: crash_recovery_amd | bool
+  block:
+    - name: Install the AMD reset reason decoder
+      ansible.builtin.copy:
+        src: amd-reset-reason
+        dest: /usr/local/sbin/amd-reset-reason
+        owner: root
+        group: root
+        mode: "0755"
 
-- name: Install the AMD reset reason service
-  ansible.builtin.copy:
-    src: amd-reset-reason.service
-    dest: /etc/systemd/system/amd-reset-reason.service
-    mode: "0644"
-  register: crash_recovery_reset_reason_unit
+    - name: Install the AMD reset reason service
+      ansible.builtin.copy:
+        src: amd-reset-reason.service
+        dest: /etc/systemd/system/amd-reset-reason.service
+        mode: "0644"
+      register: crash_recovery_reset_reason_unit
 
-- name: Log the previous reset reason on every boot
-  ansible.builtin.systemd_service:
-    name: amd-reset-reason.service
-    enabled: true
-    daemon_reload: "{{ crash_recovery_reset_reason_unit.changed }}"
+    - name: Enable the AMD reset reason service
+      ansible.builtin.systemd_service:
+        name: amd-reset-reason.service
+        enabled: true
+        daemon_reload: "{{ crash_recovery_reset_reason_unit.changed }}"
+
+# The decoder reads an AMD FCH register, so other CPUs never run it.
+- name: Remove the AMD reset reason service
+  ansible.builtin.file:
+    path: "{{ item }}"
+    state: absent
+  loop:
+    - /etc/systemd/system/multi-user.target.wants/amd-reset-reason.service
+    - /etc/systemd/system/amd-reset-reason.service
+    - /usr/local/sbin/amd-reset-reason
+  when: not (crash_recovery_amd | bool)
+  notify: Reload systemd
