@@ -1,0 +1,4 @@
+---
+# The chipset watchdog driver: the AMD FCH TCO timer or the Intel PCH TCO timer.
+crash_recovery_amd: "{{ 'AuthenticAMD' in ansible_facts.processor }}"
+crash_recovery_watchdog_module: "{{ 'sp5100_tco' if crash_recovery_amd | bool else 'iTCO_wdt' }}"

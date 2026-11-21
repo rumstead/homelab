@@ -1,5 +1,5 @@
 [Unit]
-Description=Load the sp5100_tco hardware watchdog
+Description=Load the {{ crash_recovery_watchdog_module }} hardware watchdog
 DefaultDependencies=no
 After=systemd-modules-load.service
 Before=sysinit.target
@@ -8,7 +8,7 @@ Before=sysinit.target
 Type=oneshot
 RemainAfterExit=yes
 # Loading by name skips the Ubuntu blacklist that systemd-modules-load honors.
-ExecStart=/usr/sbin/modprobe sp5100_tco
+ExecStart=/usr/sbin/modprobe {{ crash_recovery_watchdog_module }}
 
 [Install]
 WantedBy=sysinit.target
