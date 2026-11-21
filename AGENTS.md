@@ -66,7 +66,7 @@ Run every playbook from the repo root (`ansible.cfg` lives there). Each role is 
 ### Network and node identity
 
 - Bridge name: `br0`
-- Host interface name in config: `enp2s0`
+- Host NIC: found by the `network` role (the only wired PCI Ethernet NIC); `host_nic` in `ansible/group_vars/all.yml` overrides it
 - Control plane IP: `192.168.1.245`
 - Worker IP: `192.168.1.222`
 - Gateway IP: `192.168.1.1`

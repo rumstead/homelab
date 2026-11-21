@@ -19,7 +19,8 @@ hubble_version: 1.19.4
 
 # Host
 host_user: rumstead
-host_nic: enp2s0
+# The network role finds the host NIC. Set host_nic only when the host has more
+# than one wired NIC.
 bridge_name: br0
 host_ip: 192.168.1.234/24
 gateway_ip: 192.168.1.1

@@ -1,8 +1,30 @@
 ---
+# A wired NIC is a PCI Ethernet device that isn't wireless. Once br0 exists the
+# NIC is still there as a bridge member, so this finds the same one on every run.
+- name: Find the wired NICs
+  ansible.builtin.set_fact:
+    network_wired_nics: >-
+      {{ ansible_facts.interfaces | map('regex_replace', '-', '_') | map('extract', ansible_facts)
+         | selectattr('type', 'defined') | selectattr('type', 'equalto', 'ether')
+         | selectattr('pciid', 'defined') | map(attribute='device') | reject('match', 'wl') | sort }}
+  when: host_nic is not defined
+
+- name: Stop unless there is exactly one wired NIC
+  ansible.builtin.assert:
+    that: network_wired_nics | length == 1
+    fail_msg: "Wired NICs: {{ network_wired_nics | join(', ') or 'none' }}. Set host_nic in ansible/group_vars/all.yml."
+    quiet: true
+  when: host_nic is not defined
+
+- name: Use the wired NIC as the host NIC
+  ansible.builtin.set_fact:
+    host_nic: "{{ network_wired_nics | first }}"
+  when: host_nic is not defined
+
 - name: Check that the host NIC exists
   ansible.builtin.assert:
     that: host_nic in ansible_facts.interfaces
-    fail_msg: "{{ host_nic }} not found. Interfaces: {{ ansible_facts.interfaces | join(', ') }}. Set host_nic in ansible/group_vars/all.yml."
+    fail_msg: "{{ host_nic }} not found. Interfaces: {{ ansible_facts.interfaces | join(', ') }}. Fix host_nic in ansible/group_vars/all.yml."
     quiet: true
 
 # Installer files can hold a Wi-Fi password, so only file names are read.
