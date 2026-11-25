@@ -65,7 +65,7 @@ spec:
             - name: nginx-config
               mountPath: /etc/nginx/conf.d
         - name: tusd
-          image: tusproject/tusd:v2.10.1
+          image: tusproject/tusd:v2.10.3
           args:
             - -host=127.0.0.1
             - -port=8081
