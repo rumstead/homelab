@@ -1,6 +1,12 @@
 machine:
   install:
     disk: /dev/vda
+  # Kubelet only prunes images by disk usage once /var passes 85%, so the old
+  # images every version bump leaves behind would otherwise stay. This removes
+  # images no container has used for a week.
+  kubelet:
+    extraConfig:
+      imageMaximumGCAge: 168h
   # The router forwards DNS to AdGuard, which runs in this cluster. The public
   # fallback lets a rebooting node resolve its time server before AdGuard is
   # back, otherwise etcd and kubelet wait on time sync forever.
