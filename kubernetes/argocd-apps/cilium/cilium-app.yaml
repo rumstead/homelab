@@ -77,9 +77,22 @@ spec:
           # last-applied annotation
           annotations:
             argocd.argoproj.io/sync-options: ServerSideApply=true
+        # Egress allowlists roll out in audit mode: connections a policy would
+        # drop are forwarded and recorded with the verdict AUDIT.
+        policyAuditMode: true
         hubble:
           # Must be 2^n - 1
           eventBufferCapacity: "16383"
+          # Every AUDIT verdict is written to a file on each node, so the audit
+          # week does not depend on Hubble's in-memory buffer.
+          export:
+            static:
+              enabled: true
+              filePath: /var/run/cilium/hubble/audit.log
+              allowList:
+                - '{"verdict":["AUDIT"]}'
+              fileMaxSizeMb: 20
+              fileMaxBackups: 10
           tls:
             auto:
               # The helm method generates a new CA on every Argo CD render

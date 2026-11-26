@@ -181,6 +181,7 @@ Each alert class gets one received positive and one quiet negative before it cou
 - A pod that connects to a hard-coded IP not in its allowlist is blocked, which is intended.
 - The Tailscale proxies' rules are broad (any UDP, TCP 443 to any address). Accepted for those pods only.
 - Trivy rootfs scans run each target image as a short-lived root container without a token or outside egress.
+- The owner's images (`golf-etl`, `lifting-data`) stay on `:latest` by choice. Trivy treats a rebuilt image with an unchanged tag as already scanned, so its report can lag a rebuild by up to the 24-hour report lifetime.
 - Suricata false positives. Mitigated by the category list, per-signature grouping and the suppression list.
 - The first-seen baseline adds every new domain after one day, so a one-off malicious domain stops being "new" the next day. The dated daily files keep the full history for review.
 - The HaGeZi list can block a legitimate domain for the whole LAN; the undo is one toggle or an allowlist entry.
