@@ -1,0 +1,79 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: trivy-operator
+  namespace: argocd
+  annotations:
+    argocd.argoproj.io/manifest-generate-paths: .
+spec:
+  project: default
+  sources:
+    - repoURL: https://aquasecurity.github.io/helm-charts/
+      chart: trivy-operator
+      targetRevision: 0.38.1
+      helm:
+        valuesObject:
+          # Every namespace is scanned, kube-system included.
+          excludeNamespaces: ""
+          operator:
+            # One scan job at a time keeps the worker responsive.
+            scanJobsConcurrentLimit: 1
+            vulnerabilityScannerEnabled: true
+            configAuditScannerEnabled: true
+            rbacAssessmentScannerEnabled: true
+            exposedSecretScannerEnabled: true
+            # The node collector's CIS file checks target kubeadm-style
+            # layouts, not Talos.
+            infraAssessmentScannerEnabled: false
+            clusterComplianceEnabled: false
+            # The server alone holds the vulnerability database, so scan jobs
+            # only talk to it.
+            builtInTrivyServer: true
+            # Per-CVE metrics carry the fixed version that alerts filter on.
+            metricsVulnIdEnabled: true
+          trivyOperator:
+            scanJobAutomountServiceAccountToken: false
+            # Rootfs scans read the image as the job's own container, so
+            # kubelet pulls it and the job needs no registry access. Reading
+            # every file needs root.
+            scanJobPodTemplateContainerSecurityContext:
+              allowPrivilegeEscalation: false
+              capabilities:
+                drop:
+                  - ALL
+              privileged: false
+              readOnlyRootFilesystem: true
+              runAsUser: 0
+          trivy:
+            # rootfs, not filesystem: filesystem mode turns off the analyzers
+            # for Go binaries and installed language packages.
+            command: rootfs
+            ignoreUnfixed: false
+            storageSize: "2Gi"
+            resources:
+              requests:
+                cpu: 100m
+                memory: 256Mi
+              limits:
+                cpu: "1"
+                memory: 1Gi
+          serviceMonitor:
+            enabled: true
+            labels:
+              release: kube-prometheus-stack
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: trivy-system
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true
+      - ServerSideApply=true
+    retry:
+      limit: 5
+      backoff:
+        duration: 5s
+        factor: 2
+        maxDuration: 3m
