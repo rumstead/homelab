@@ -94,10 +94,10 @@ spec:
             enabled: true
           metrics:
             enabled:
-              - flows-to-world:any-drop;port;sourceContext=workload-name|reserved-identity;destinationContext=dns|ip
+              - flows-to-world:port;sourceContext=workload-name|reserved-identity;destinationContext=dns|ip;labelsContext=source_namespace,destination_namespace
               - dns:query;ignoreAAAA;sourceContext=workload-name|reserved-identity
-              - drop:sourceContext=workload-name|reserved-identity;destinationContext=workload-name|reserved-identity
-              - flow:sourceContext=workload-name|reserved-identity;destinationContext=workload-name|reserved-identity
+              - drop:sourceContext=workload-name|reserved-identity;destinationContext=workload-name|reserved-identity;labelsContext=source_namespace,destination_namespace
+              - flow:sourceContext=workload-name|reserved-identity;destinationContext=workload-name|reserved-identity;labelsContext=source_namespace,destination_namespace
               - tcp
               - port-distribution
             serviceMonitor:
