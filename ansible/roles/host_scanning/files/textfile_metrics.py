@@ -59,20 +59,29 @@ def _atomic_write(path, text, mode=0o644):
 
 
 def write_metrics(scanner, metrics):
-    suffix = "-test" if TEST_LABEL else ""
-    _atomic_write(os.path.join(TEXTFILE_DIR, f"{scanner}{suffix}.prom"), metrics.render())
+    _atomic_write(os.path.join(TEXTFILE_DIR, f"{scanner}{test_suffix()}.prom"), metrics.render())
+
+
+def test_suffix():
+    """Suffix for every file a test run writes, so it never touches real ones."""
+    return "-test" if TEST_LABEL else ""
 
 
 def state_path(scanner):
-    suffix = "-test" if TEST_LABEL else ""
-    return os.path.join(STATE_DIR, f"{scanner}{suffix}-state.json")
+    return os.path.join(STATE_DIR, f"{scanner}{test_suffix()}-state.json")
 
 
 def load_state(scanner):
+    """Returns the saved state; a corrupt file is moved aside and state starts over."""
+    path = state_path(scanner)
     try:
-        with open(state_path(scanner)) as handle:
+        with open(path) as handle:
             return json.load(handle)
     except FileNotFoundError:
+        return {}
+    except (ValueError, OSError):
+        traceback.print_exc()
+        os.replace(path, f"{path}.corrupt-{int(time.time())}")
         return {}
 
 
@@ -117,8 +126,7 @@ def run_scanner(scanner, collect):
 
 def _write_failure(scanner, failure_metrics):
     """Keeps the last good results and updates only the freshness series."""
-    suffix = "-test" if TEST_LABEL else ""
-    path = os.path.join(TEXTFILE_DIR, f"{scanner}{suffix}.prom")
+    path = os.path.join(TEXTFILE_DIR, f"{scanner}{test_suffix()}.prom")
     kept = []
     try:
         with open(path) as handle:

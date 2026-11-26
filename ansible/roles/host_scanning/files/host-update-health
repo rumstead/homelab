@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
 """Reports whether crete's updates are being applied.
 
-- unattended-upgrades: apt's periodic stamp, touched after a successful run
+- unattended-upgrades: apt's upgrade stamp, which apt.systemd.daily touches only
+  when unattended-upgrade exits 0 (a run with nothing to install counts)
 - host-auto-update: the systemd service's last successful exit, remembered
   across reboots in the state file
 - package lists: apt's update-success stamp
@@ -67,7 +68,7 @@ def pending_security():
 def collect(metrics: Metrics, state):
     now = time.time()
 
-    uu = stamp_age("unattended-upgrades-stamp")
+    uu = stamp_age("upgrade-stamp")
     if uu is not None:
         metrics.add(
             "host_updates_unattended_last_success_timestamp_seconds", int(uu), "Last successful unattended-upgrades run"

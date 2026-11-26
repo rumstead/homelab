@@ -12,7 +12,7 @@ import subprocess
 import sys
 
 sys.path.insert(0, "/usr/local/lib/host-scanning")
-from textfile_metrics import STATE_DIR, Metrics, _atomic_write, run_scanner  # noqa: E402
+from textfile_metrics import STATE_DIR, Metrics, _atomic_write, run_scanner, test_suffix  # noqa: E402
 
 SCANNER = "host_trivy"
 DIRS = os.environ.get("HOST_TRIVY_DIRS", "/usr/local/bin:/home/rumstead/.local/bin:/home/rumstead/go/bin").split(":")
@@ -82,7 +82,7 @@ def collect(metrics: Metrics, state):
             "Executables Trivy could read package versions from",
             directory=directory,
         )
-    _atomic_write(os.path.join(STATE_DIR, "trivy-report.json"), json.dumps(report, indent=2), mode=0o600)
+    _atomic_write(os.path.join(STATE_DIR, f"trivy-report{test_suffix()}.json"), json.dumps(report, indent=2), mode=0o600)
 
 
 if __name__ == "__main__":

@@ -120,11 +120,11 @@ spec:
 
         - alert: HostScannerMissing
           expr: |
-            label_replace(absent(host_trivy_last_success_timestamp_seconds{job="host-node-exporter"}), "scanner", "host_trivy", "", "")
+            label_replace(absent(host_trivy_last_success_timestamp_seconds{job="host-node-exporter", test!="true"}), "scanner", "host_trivy", "", "")
             or
-            label_replace(absent(host_lynis_last_success_timestamp_seconds{job="host-node-exporter"}), "scanner", "host_lynis", "", "")
+            label_replace(absent(host_lynis_last_success_timestamp_seconds{job="host-node-exporter", test!="true"}), "scanner", "host_lynis", "", "")
             or
-            label_replace(absent(host_updates_last_success_timestamp_seconds{job="host-node-exporter"}), "scanner", "host_updates", "", "")
+            label_replace(absent(host_updates_last_success_timestamp_seconds{job="host-node-exporter", test!="true"}), "scanner", "host_updates", "", "")
           for: 30m
           labels:
             severity: warning

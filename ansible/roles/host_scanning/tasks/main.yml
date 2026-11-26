@@ -78,51 +78,60 @@
 
 - name: Install the scanners
   ansible.builtin.copy:
-    src: "{{ item }}"
-    dest: "/usr/local/sbin/{{ item }}"
+    src: "{{ item.name }}"
+    dest: "/usr/local/sbin/{{ item.name }}"
     owner: root
     group: root
     mode: "0755"
-  loop: "{{ host_scanning_timers.keys() | list }}"
+  loop: "{{ host_scanning_scanners }}"
+  loop_control:
+    label: "{{ item.name }}"
 
 - name: Install the scanner services
   ansible.builtin.copy:
-    dest: "/etc/systemd/system/{{ item }}.service"
+    dest: "/etc/systemd/system/{{ item.name }}.service"
     owner: root
     group: root
     mode: "0644"
     content: |
       [Unit]
-      Description=Host scanner {{ item }}
+      Description=Host scanner {{ item.name }}
       After=network-online.target
       Wants=network-online.target
 
       [Service]
       Type=oneshot
-      ExecStart=/usr/local/sbin/{{ item }}
+      Environment=HOST_SCANNING_TEXTFILE_DIR={{ host_scanning_textfile_dir }}
+      Environment=HOST_SCANNING_STATE_DIR={{ host_scanning_state_dir }}
+      Environment=HOST_TRIVY_DIRS={{ host_scanning_trivy_dirs | join(':') }}
+      ExecStart=/usr/local/sbin/{{ item.name }}
       Nice=10
       IOSchedulingClass=idle
-  loop: "{{ host_scanning_timers.keys() | list }}"
+  loop: "{{ host_scanning_scanners }}"
+  loop_control:
+    label: "{{ item.name }}"
   notify: Reload systemd for host scanning
 
 - name: Install the scanner timers
   ansible.builtin.copy:
-    dest: "/etc/systemd/system/{{ item.key }}.timer"
+    dest: "/etc/systemd/system/{{ item.name }}.timer"
     owner: root
     group: root
     mode: "0644"
     content: |
       [Unit]
-      Description=Run {{ item.key }} on a schedule
+      Description=Run {{ item.name }} on a schedule
 
       [Timer]
-      OnCalendar={{ item.value }}
+      OnCalendar={{ item.schedule }}
       RandomizedDelaySec=15m
       Persistent=true
 
       [Install]
       WantedBy=timers.target
-  loop: "{{ host_scanning_timers | dict2items }}"
+  loop: "{{ host_scanning_scanners }}"
+  loop_control:
+    label: "{{ item.name }}"
   notify: Reload systemd for host scanning
 
 - name: Flush the systemd reload
@@ -131,8 +140,31 @@
 # In check mode the unit files above are not written yet.
 - name: Enable the scanner timers
   ansible.builtin.systemd_service:
-    name: "{{ item }}.timer"
+    name: "{{ item.name }}.timer"
     enabled: true
     state: started
-  loop: "{{ host_scanning_timers.keys() | list }}"
+  loop: "{{ host_scanning_scanners }}"
+  loop_control:
+    label: "{{ item.name }}"
+  ignore_errors: "{{ ansible_check_mode }}"
+
+# A timer that has never fired waits for its first scheduled time, so a
+# scanner without results is started once now instead of alerting as missing.
+- name: Check which scanners have results
+  ansible.builtin.stat:
+    path: "{{ host_scanning_textfile_dir }}/{{ item.metrics }}.prom"
+  loop: "{{ host_scanning_scanners }}"
+  loop_control:
+    label: "{{ item.name }}"
+  register: host_scanning_results
+
+- name: Start scanners that have no results yet
+  ansible.builtin.systemd_service:
+    name: "{{ item.item.name }}.service"
+    state: started
+    no_block: true
+  loop: "{{ host_scanning_results.results }}"
+  loop_control:
+    label: "{{ item.item.name }}"
+  when: not item.stat.exists
   ignore_errors: "{{ ansible_check_mode }}"

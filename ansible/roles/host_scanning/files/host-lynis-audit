@@ -11,10 +11,10 @@ import subprocess
 import sys
 
 sys.path.insert(0, "/usr/local/lib/host-scanning")
-from textfile_metrics import STATE_DIR, Metrics, _atomic_write, run_scanner  # noqa: E402
+from textfile_metrics import STATE_DIR, Metrics, _atomic_write, run_scanner, test_suffix  # noqa: E402
 
 SCANNER = "host_lynis"
-REPORT = os.path.join(STATE_DIR, "lynis-report.dat")
+REPORT = os.path.join(STATE_DIR, f"lynis-report{test_suffix()}.dat")
 
 
 def parse_report(path):
@@ -23,17 +23,24 @@ def parse_report(path):
         for line in handle:
             key, _, value = line.rstrip("\n").partition("=")
             if key == "warning[]":
+                # A test can raise several warnings, so a warning is its ID and text.
                 test_id, _, rest = value.partition("|")
-                warnings[test_id] = rest.split("|")[0]
+                warnings[f"{test_id}|{rest.split('|')[0]}"] = test_id
             else:
                 values[key] = value
     return values, warnings
 
 
 def collect(metrics: Metrics, state):
+    # Lynis clears its report only partway through startup, so an early exit
+    # would leave last week's complete report behind.
+    try:
+        os.remove(REPORT)
+    except FileNotFoundError:
+        pass
     subprocess.run(
         ["lynis", "audit", "system", "--quiet", "--no-colors", "--report-file", REPORT, "--logfile", "/var/log/lynis.log"],
-        check=False,
+        check=True,
         timeout=3600,
     )
     values, warnings = parse_report(REPORT)
@@ -42,15 +49,15 @@ def collect(metrics: Metrics, state):
     index = int(values["hardening_index"])
 
     previous = state.get("warnings")
-    new = {} if previous is None else {k: v for k, v in warnings.items() if k not in previous}
+    new = [] if previous is None else sorted(w for w in warnings if w not in previous)
     if new:
         stamp = datetime.date.today().isoformat()
-        text = "".join(f"{test_id}\t{message}\n" for test_id, message in sorted(new.items()))
-        _atomic_write(os.path.join(STATE_DIR, f"lynis-new-warnings-{stamp}.txt"), text)
+        text = "".join(w.replace("|", "\t", 1) + "\n" for w in new)
+        _atomic_write(os.path.join(STATE_DIR, f"lynis-new-warnings-{stamp}{test_suffix()}.txt"), text)
     state["new_warnings_total"] = state.get("new_warnings_total", 0) + len(new)
     state["previous_hardening_index"] = state.get("hardening_index", index)
     state["hardening_index"] = index
-    state["warnings"] = warnings
+    state["warnings"] = sorted(warnings)
     state["lynis_version"] = values.get("lynis_version", "")
 
     metrics.add("host_lynis_hardening_index", index, "Lynis hardening index of the last complete audit")
