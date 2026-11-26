@@ -1343,7 +1343,7 @@ data:
                 "type": "prometheus",
                 "uid": "${datasource}"
               },
-              "expr": "sum by (source) (increase(hubble_flows_to_world_total{verdict=\"DROPPED\"}[1h] ))",
+              "expr": "sum by (source) (increase(hubble_flows_to_world_total{verdict=~\"DROPPED|AUDIT\"}[1h] ))",
               "legendFormat": "{{source}} this week"
             },
             {
@@ -1352,7 +1352,7 @@ data:
                 "type": "prometheus",
                 "uid": "${datasource}"
               },
-              "expr": "sum by (source) (increase(hubble_flows_to_world_total{verdict=\"DROPPED\"}[1h] offset 7d))",
+              "expr": "sum by (source) (increase(hubble_flows_to_world_total{verdict=~\"DROPPED|AUDIT\"}[1h] offset 7d))",
               "legendFormat": "{{source}} last week"
             }
           ]
@@ -1424,7 +1424,7 @@ data:
                 "type": "prometheus",
                 "uid": "${datasource}"
               },
-              "expr": "sum by (destination) (increase(hubble_flows_to_world_total{verdict=\"DROPPED\"}[1h] ))",
+              "expr": "sum by (destination) (increase(hubble_flows_to_world_total{verdict=~\"DROPPED|AUDIT\"}[1h] ))",
               "legendFormat": "{{destination}} this week"
             },
             {
@@ -1433,7 +1433,7 @@ data:
                 "type": "prometheus",
                 "uid": "${datasource}"
               },
-              "expr": "sum by (destination) (increase(hubble_flows_to_world_total{verdict=\"DROPPED\"}[1h] offset 7d))",
+              "expr": "sum by (destination) (increase(hubble_flows_to_world_total{verdict=~\"DROPPED|AUDIT\"}[1h] offset 7d))",
               "legendFormat": "{{destination}} last week"
             }
           ]

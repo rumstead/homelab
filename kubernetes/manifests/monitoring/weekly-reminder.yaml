@@ -31,7 +31,7 @@ data:
     # {O} becomes "" for this week and "offset 7d" for last week.
     FIGURES = [
         ("Blocked egress flows",
-         'sum(increase(hubble_flows_to_world_total{{verdict="DROPPED"}}[7d] {O}))', "hubble-metrics", "int"),
+         'sum(increase(hubble_flows_to_world_total{{verdict=~"DROPPED|AUDIT"}}[7d] {O}))', "hubble-metrics", "int"),
         ("Suricata hits",
          'sum(increase(suricata_alerts_total[7d] {O}))', None, "int"),
         ("Open fixable critical/high findings",
