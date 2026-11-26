@@ -32,15 +32,22 @@
     },
     {
       // Talos and Kubernetes bumps only change the pins in group_vars. The
-      // live cluster is upgraded with ansible/upgrade.yml.
+      // live cluster is upgraded with ansible/upgrade.yml. Patches get their
+      // own PR so a minor waiting for approval doesn't hold them back.
       matchPackageNames: ['siderolabs/talos', 'kubernetes/kubernetes'],
-      groupName: 'talos and kubernetes',
+      separateMinorPatch: true,
+    },
+    {
+      matchPackageNames: ['siderolabs/talos', 'kubernetes/kubernetes'],
+      matchUpdateTypes: ['patch'],
+      groupName: 'talos and kubernetes patches',
     },
     {
       // Minors need a dashboard approval: Kubernetes must stay within the
       // range tested by the installed Cilium release.
       matchPackageNames: ['siderolabs/talos', 'kubernetes/kubernetes'],
       matchUpdateTypes: ['major', 'minor'],
+      groupName: 'talos and kubernetes',
       dependencyDashboardApproval: true,
     },
     {
