@@ -1,0 +1,232 @@
+# Monday reminder email. Reads Prometheus and mails the owner through Gmail with its own app password
+# from the weekly-reminder-smtp Secret (keys SMTP_USER, SMTP_PASSWORD, SMTP_FROM, SMTP_TO), so a revoked
+# Alertmanager credential does not silence it. It needs no Kubernetes API access.
+# Egress needed: kube-prometheus-stack-prometheus.monitoring:9090 and smtp.gmail.com:587 (and DNS).
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: weekly-reminder-script
+  namespace: monitoring
+data:
+  weekly_reminder.py: |
+    #!/usr/bin/env python3
+    """Monday homelab reminder: headline figures from Prometheus, sent as one plain-text email."""
+    import argparse
+    import json
+    import os
+    import smtplib
+    import ssl
+    import sys
+    import urllib.parse
+    import urllib.request
+    from email.message import EmailMessage
+    
+    PROM = os.environ.get("PROMETHEUS_URL", "http://kube-prometheus-stack-prometheus.monitoring:9090")
+    DASHBOARD = "https://grafana.tailb4b203.ts.net"
+    # A figure is incomplete when its source job has data in fewer than this share of the week.
+    MIN_COVERAGE = 0.9
+    REF_JOB = "kube-prometheus-stack-prometheus"
+    
+    # (label, expression, job whose data must be present, unit)
+    # {O} becomes "" for this week and "offset 7d" for last week.
+    FIGURES = [
+        ("Blocked egress flows",
+         'sum(increase(hubble_flows_to_world_total{{verdict="DROPPED"}}[7d] {O}))', "hubble-metrics", "int"),
+        ("Suricata hits",
+         'sum(increase(suricata_alerts_total[7d] {O}))', None, "int"),
+        ("Open fixable critical/high findings",
+         'sum(max by (namespace, image_repository, image_tag) (trivy_image_vulnerabilities{{severity=~"Critical|High"}} {O}))'
+         ' + sum(host_trivy_vulnerabilities{{fixable="true", severity=~"CRITICAL|HIGH"}} {O})',
+         "trivy-operator", "int"),
+        ("Stale or missing scanners",
+         'count(max_over_time(ALERTS{{alertname=~"HostScannerStale|HostScannerMissing|TrivyOperatorDown|TrivyCoverageGap", alertstate="firing"}}[7d] {O})) or vector(0)',
+         REF_JOB, "int"),
+        ("Alerts that fired",
+         'count(max_over_time(ALERTS{{alertstate="firing", alertname!="Watchdog"}}[7d] {O})) or vector(0)',
+         REF_JOB, "int"),
+        ("crete root disk used",
+         '100 * (1 - max(node_filesystem_avail_bytes{{job="host-node-exporter", mountpoint="/"}} {O})'
+         ' / max(node_filesystem_size_bytes{{job="host-node-exporter", mountpoint="/"}} {O}))',
+         "host-node-exporter", "pct"),
+    ]
+    
+    
+    def query(expr):
+        url = PROM + "/api/v1/query?" + urllib.parse.urlencode({"query": expr})
+        with urllib.request.urlopen(url, timeout=30) as resp:
+            body = json.load(resp)
+        if body.get("status") != "success":
+            raise RuntimeError("prometheus error: %s" % body.get("error"))
+        return body["data"]["result"]
+    
+    
+    def scalar(expr):
+        """Return a float, or None when the query has no data or fails."""
+        try:
+            res = query(expr)
+        except Exception as exc:  # noqa: BLE001
+            print("query failed: %s (%s)" % (expr[:80], exc), file=sys.stderr)
+            return None
+        if not res:
+            return None
+        return float(res[0]["value"][1])
+    
+    
+    def coverage(job, offset):
+        """Share of the week's 5 minute steps in which the job's up series has data."""
+        o = " offset 7d" if offset else ""
+        steps = scalar('count_over_time(max(up{job="%s"})[7d:5m]%s)' % (job, o))
+        return (steps or 0.0) / 2016.0
+    
+    
+    def fmt(value, unit):
+        if value is None:
+            return "no data"
+        if unit == "pct":
+            return "%.1f%%" % value
+        return "%d" % round(value)
+    
+    
+    def figure_line(label, expr, job, unit):
+        cells = []
+        for offset in (False, True):
+            value = scalar(expr.format(O="offset 7d" if offset else ""))
+            text = fmt(value, unit)
+            if job and coverage(job, offset) < MIN_COVERAGE:
+                text += " (incomplete)"
+            cells.append(text)
+        return "%-37s %-20s last week: %s" % (label, cells[0], cells[1])
+    
+    
+    def alertmanager_line():
+        sent = scalar('sum(increase(alertmanager_notifications_total{integration="email"}[7d]))')
+        failed = scalar('sum(increase(alertmanager_notifications_failed_total{integration="email"}[7d]))')
+        if sent is None or failed is None:
+            return "Alertmanager email: no data (check Alertmanager)"
+        status = "OK" if failed < 0.5 else "FAILURES, check the Gmail app password"
+        return "Alertmanager email: %s (%d sent, %d failed)" % (status, round(sent), round(failed))
+    
+    
+    def targets_line():
+        try:
+            down = query("up == 0")
+            total = query("count(up)")
+        except Exception as exc:  # noqa: BLE001
+            return "Scrape targets: no data (%s)" % exc
+        if not total:
+            return "Scrape targets: no data"
+        n = int(float(total[0]["value"][1]))
+        if not down:
+            return "Scrape targets: all %d up" % n
+        names = sorted("%s/%s" % (r["metric"].get("job", "?"), r["metric"].get("instance", "?")) for r in down)
+        return "Scrape targets: %d of %d DOWN: %s" % (len(names), n, ", ".join(names))
+    
+    
+    def build():
+        lines = ["Homelab weekly check (last 7 days, then the 7 days before)", ""]
+        lines += [figure_line(*f) for f in FIGURES]
+        lines += ["", alertmanager_line(), targets_line(), "", "Dashboard: " + DASHBOARD, ""]
+        lines.append("Figures marked incomplete have gaps in their data. No email on a Monday means check crete, the cluster and Prometheus.")
+        return "\n".join(lines)
+    
+    
+    def send(body):
+        msg = EmailMessage()
+        msg["Subject"] = "Homelab weekly check"
+        msg["From"] = os.environ["SMTP_FROM"]
+        msg["To"] = os.environ["SMTP_TO"]
+        msg.set_content(body)
+        with smtplib.SMTP("smtp.gmail.com", 587, timeout=30) as smtp:
+            smtp.starttls(context=ssl.create_default_context())
+            smtp.login(os.environ["SMTP_USER"], os.environ["SMTP_PASSWORD"])
+            smtp.send_message(msg)
+    
+    
+    def main():
+        parser = argparse.ArgumentParser()
+        parser.add_argument("--dry-run", action="store_true", help="print the email instead of sending it")
+        args = parser.parse_args()
+        body = build()
+        if args.dry_run:
+            print(body)
+            return
+        send(body)
+        print("sent")
+    
+    
+    if __name__ == "__main__":
+        main()
+---
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: weekly-reminder
+  namespace: monitoring
+spec:
+  schedule: "0 6 * * 1"
+  timeZone: America/New_York
+  concurrencyPolicy: Forbid
+  successfulJobsHistoryLimit: 1
+  failedJobsHistoryLimit: 3
+  jobTemplate:
+    spec:
+      backoffLimit: 2
+      activeDeadlineSeconds: 600
+      template:
+        spec:
+          restartPolicy: Never
+          automountServiceAccountToken: false
+          securityContext:
+            runAsNonRoot: true
+            runAsUser: 65532
+            runAsGroup: 65532
+            seccompProfile:
+              type: RuntimeDefault
+          containers:
+            - name: reminder
+              image: python:3.15.2-slim
+              command: ["python", "/app/weekly_reminder.py"]
+              env:
+                - name: PYTHONDONTWRITEBYTECODE
+                  value: "1"
+                - name: PROMETHEUS_URL
+                  value: http://kube-prometheus-stack-prometheus.monitoring:9090
+                - name: SMTP_USER
+                  valueFrom:
+                    secretKeyRef:
+                      name: weekly-reminder-smtp
+                      key: SMTP_USER
+                - name: SMTP_PASSWORD
+                  valueFrom:
+                    secretKeyRef:
+                      name: weekly-reminder-smtp
+                      key: SMTP_PASSWORD
+                - name: SMTP_FROM
+                  valueFrom:
+                    secretKeyRef:
+                      name: weekly-reminder-smtp
+                      key: SMTP_FROM
+                - name: SMTP_TO
+                  valueFrom:
+                    secretKeyRef:
+                      name: weekly-reminder-smtp
+                      key: SMTP_TO
+              securityContext:
+                allowPrivilegeEscalation: false
+                readOnlyRootFilesystem: true
+                capabilities:
+                  drop: ["ALL"]
+              resources:
+                requests:
+                  cpu: 10m
+                  memory: 32Mi
+                limits:
+                  memory: 128Mi
+              volumeMounts:
+                - name: script
+                  mountPath: /app
+                  readOnly: true
+          volumes:
+            - name: script
+              configMap:
+                name: weekly-reminder-script
