@@ -1,8 +1,8 @@
 ## 1. Foundations
-- [ ] 1.1 Add the node_exporter textfile collector directory in the `exporters` role and confirm a test metric reaches Prometheus from `192.168.1.234:9100`
-- [ ] 1.2 Turn off Grafana usage reporting, update checks and Gravatar in the kube-prometheus-stack values
-- [ ] 1.3 In the Hubble metrics, remove `any-drop` from `flows-to-world` and add `labelsContext=source_namespace,destination_namespace` to the flow, drop and flows-to-world metrics; confirm the LAN probe drops no longer appear
-- [ ] 1.4 Add Alertmanager routes for the new alert groups with their `group_by` and `repeat_interval`, raise Alertmanager `retention` to 192h, and confirm the catch-all route neither swallows nor duplicates them
+- [x] 1.1 Add the node_exporter textfile collector directory in the `exporters` role and confirm a test metric reaches Prometheus from `192.168.1.234:9100`
+- [x] 1.2 Turn off Grafana usage reporting, update checks and Gravatar in the kube-prometheus-stack values
+- [x] 1.3 In the Hubble metrics, remove `any-drop` from `flows-to-world` and add `labelsContext=source_namespace,destination_namespace` to the flow, drop and flows-to-world metrics; confirm the LAN probe drops no longer appear
+- [x] 1.4 Add Alertmanager routes for the new alert groups with their `group_by` and `repeat_interval`, raise Alertmanager `retention` to 192h, and confirm the catch-all route neither swallows nor duplicates them
 
 ## 2. Cluster scanning
 - [ ] 2.1 Add the Trivy Operator Argo CD app (`trivy-system`, chart pinned and tracked by Renovate, `aquasecurity.github.io` allowed for argocd-repo-server later) with the built-in Trivy server, `trivy.command: filesystem`, vulnerability, config audit, RBAC and image secret scanning, infra assessment and node collector off, one scan job at a time, ServiceMonitor and per-CVE metrics on
