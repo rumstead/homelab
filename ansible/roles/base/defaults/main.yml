@@ -5,10 +5,10 @@ base_packages:
   - ansible
   - ansible-lint
   - bash-completion
+  - bind9-dnsutils
   - build-essential
   - ca-certificates
   - curl
-  - dnsutils
   - fzf
   - gh
   - git
