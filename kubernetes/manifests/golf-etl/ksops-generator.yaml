@@ -7,5 +7,4 @@ metadata:
       exec:
         path: ksops
 files:
-  - ./golf-etl-rclone.sops.yaml
   - ./golf-etl-deploy-key.sops.yaml

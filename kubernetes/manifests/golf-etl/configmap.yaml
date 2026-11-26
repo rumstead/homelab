@@ -1,4 +1,4 @@
-# Non-secret settings for golf-etl and rclone. Any GOLF_* threshold or TTL can be overridden here
+# Non-secret settings for golf-etl. Any GOLF_* threshold or TTL can be overridden here
 # (see src/golf_etl/config.py in rumstead/golf-etl).
 apiVersion: v1
 kind: ConfigMap
@@ -8,7 +8,3 @@ metadata:
 data:
   GOLF_STORAGE: github
   GOLF_INBOX_ROOT: /data
-  GOLF_REMOTE: gdrive:golf
-  RCLONE_CONFIG_GDRIVE_TYPE: drive
-  RCLONE_CONFIG_GDRIVE_SCOPE: drive
-  RCLONE_DRIVE_USE_TRASH: "false"
