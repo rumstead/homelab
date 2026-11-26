@@ -1,0 +1,32 @@
+# The only policy that turns on egress default deny. It selects every pod
+# outside kube-system and the exempt namespaces and allows DNS to kube-dns
+# through the Cilium DNS proxy. Each namespace's egress-<namespace>.yaml adds
+# allows on top. Moving a namespace into the exempt list removes its default
+# deny.
+apiVersion: cilium.io/v2
+kind: CiliumClusterwideNetworkPolicy
+metadata:
+  name: egress-baseline
+spec:
+  description: "Egress default deny outside kube-system, DNS allowed"
+  endpointSelector:
+    matchExpressions:
+      - key: k8s:io.kubernetes.pod.namespace
+        operator: NotIn
+        values:
+          - kube-system
+  enableDefaultDeny:
+    egress: true
+    ingress: false
+  egress:
+    - toEndpoints:
+        - matchLabels:
+            k8s:io.kubernetes.pod.namespace: kube-system
+            k8s:k8s-app: kube-dns
+      toPorts:
+        - ports:
+            - port: "53"
+              protocol: ANY
+          rules:
+            dns:
+              - matchPattern: "*"

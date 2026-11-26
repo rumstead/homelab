@@ -1,0 +1,24 @@
+apiVersion: cilium.io/v2
+kind: CiliumNetworkPolicy
+metadata:
+  name: egress
+  namespace: lifting-data
+specs:
+  # The ingest CronJob's pods (everything but the web pod) read the lifting
+  # emails over IMAP. The web pod needs only DNS.
+  - endpointSelector:
+      matchExpressions:
+        - key: app
+          operator: NotIn
+          values:
+            - lifting-data-web
+    enableDefaultDeny:
+      egress: false
+      ingress: false
+    egress:
+      - toFQDNs:
+          - matchName: imap.gmail.com
+        toPorts:
+          - ports:
+              - port: "993"
+                protocol: TCP

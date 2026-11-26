@@ -1,0 +1,51 @@
+apiVersion: cilium.io/v2
+kind: CiliumNetworkPolicy
+metadata:
+  name: egress
+  namespace: adguard
+specs:
+  # AdGuard resolves through its own upstreams, never kube-dns, so its
+  # destinations are addresses: the upstream resolvers and GitHub's Pages and
+  # raw content range, where its filter lists are hosted.
+  - endpointSelector:
+      matchLabels:
+        app: adguard-home
+    enableDefaultDeny:
+      egress: false
+      ingress: false
+    egress:
+      - toCIDR:
+          - 9.9.9.10/32
+          - 149.112.112.10/32
+          - 94.140.14.14/32
+          - 94.140.15.15/32
+        toPorts:
+          - ports:
+              - port: "53"
+                protocol: ANY
+              - port: "443"
+                protocol: TCP
+              - port: "853"
+                protocol: TCP
+      - toCIDR:
+          - 185.199.108.0/22
+        toPorts:
+          - ports:
+              - port: "443"
+                protocol: TCP
+  - endpointSelector:
+      matchLabels:
+        app: adguard-exporter
+    enableDefaultDeny:
+      egress: false
+      ingress: false
+    egress:
+      - toEndpoints:
+          - matchLabels:
+              app: adguard-home
+        toPorts:
+          - ports:
+              - port: "80"
+                protocol: TCP
+              - port: "3000"
+                protocol: TCP

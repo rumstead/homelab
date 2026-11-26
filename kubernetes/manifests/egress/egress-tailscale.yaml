@@ -1,0 +1,77 @@
+apiVersion: cilium.io/v2
+kind: CiliumNetworkPolicy
+metadata:
+  name: egress
+  namespace: tailscale
+specs:
+  # The operator and the proxies keep their state in Secrets.
+  - endpointSelector: {}
+    enableDefaultDeny:
+      egress: false
+      ingress: false
+    egress:
+      - toEntities:
+          - kube-apiserver
+  - endpointSelector:
+      matchLabels:
+        app: operator
+    enableDefaultDeny:
+      egress: false
+      ingress: false
+    egress:
+      - toFQDNs:
+          - matchName: tailscale.com
+          - matchPattern: "*.tailscale.com"
+          - matchName: tailscale.io
+          - matchPattern: "*.tailscale.io"
+        toPorts:
+          - ports:
+              - port: "443"
+                protocol: TCP
+  # The ingress proxies reach DERP relays by IP on 443 and peers on whatever
+  # UDP port their NAT maps, LAN devices included, so these rules are broad
+  # by design and limited to the proxy pods. Each proxy also opens new
+  # connections to its backend pod.
+  - endpointSelector:
+      matchLabels:
+        tailscale.com/parent-resource-type: ingress
+    enableDefaultDeny:
+      egress: false
+      ingress: false
+    egress:
+      - toEntities:
+          - world
+        toPorts:
+          - ports:
+              - port: "443"
+                protocol: TCP
+              - port: "1"
+                endPort: 65535
+                protocol: UDP
+      - toEndpoints:
+          - matchLabels:
+              k8s:io.kubernetes.pod.namespace: argocd
+              app.kubernetes.io/name: argocd-server
+        toPorts:
+          - ports:
+              - port: "8080"
+                protocol: TCP
+      - toEndpoints:
+          - matchLabels:
+              k8s:io.kubernetes.pod.namespace: monitoring
+              app.kubernetes.io/name: grafana
+        toPorts:
+          - ports:
+              - port: "3000"
+                protocol: TCP
+      - toEndpoints:
+          - matchLabels:
+              k8s:io.kubernetes.pod.namespace: golf-etl
+              app: golf-etl-upload
+          - matchLabels:
+              k8s:io.kubernetes.pod.namespace: lifting-data
+              app: lifting-data-web
+        toPorts:
+          - ports:
+              - port: "8080"
+                protocol: TCP
