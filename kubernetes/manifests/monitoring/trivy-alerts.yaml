@@ -10,15 +10,18 @@ spec:
     - name: trivy-findings.rules
       rules:
         # Trivy reports only fixable vulnerabilities (ignoreUnfixed), so every
-        # count here has a fixed version available.
+        # count here has a fixed version available. Reports expire after 24h
+        # and are rebuilt one scan at a time, so the finding alerts keep
+        # firing through that gap instead of resolving and firing again.
         - alert: OwnImageVulnerability
           expr: |
             label_replace(
-              sum by (namespace, image_registry, image_repository) (
+              max by (namespace, image_registry, image_repository) (
                 trivy_image_vulnerabilities{image_registry="ghcr.io", image_repository=~"rumstead/.+", severity=~"Critical|High"}
               ) > 0,
               "resource", "$1", "image_repository", "(.*)"
             )
+          keep_firing_for: 6h
           labels:
             severity: warning
             alert_class: vulnerability
@@ -34,17 +37,18 @@ spec:
         - alert: ThirdPartyImagesCritical
           expr: |
             count(
-              sum by (image_registry, image_repository, image_tag) (
+              max by (image_registry, image_repository, image_tag) (
                 trivy_image_vulnerabilities{severity="Critical", image_repository!~"rumstead/.+"}
               ) > 0
             ) > 0
+          keep_firing_for: 6h
           labels:
             severity: warning
             alert_class: vulnerability
           annotations:
             summary: "{{ $value }} third-party images have fixable critical vulnerabilities"
             description: >-
-              {{ range query "sum by (image_registry, image_repository, image_tag) (trivy_image_vulnerabilities{severity=\"Critical\", image_repository!~\"rumstead/.+\"}) > 0" }}{{ .Labels.image_registry }}/{{ .Labels.image_repository }}:{{ .Labels.image_tag }} ({{ .Value }}) {{ end }}
+              {{ range query "max by (image_registry, image_repository, image_tag) (trivy_image_vulnerabilities{severity=\"Critical\", image_repository!~\"rumstead/.+\"}) > 0" }}{{ .Labels.image_registry }}/{{ .Labels.image_repository }}:{{ .Labels.image_tag }} ({{ .Value }}) {{ end }}
               These clear when the upstream project ships a fixed image and Renovate bumps it.
 
         - alert: OwnWorkloadConfigFinding
@@ -56,6 +60,7 @@ spec:
               "resource", "$1", "resource_name", "(.*)"
             )
           for: 15m
+          keep_firing_for: 6h
           labels:
             severity: warning
             alert_class: vulnerability
@@ -69,9 +74,10 @@ spec:
         - alert: ImageSecretFound
           expr: |
             label_replace(
-              sum by (namespace, image_registry, image_repository) (trivy_image_exposedsecrets) > 0,
+              max by (namespace, image_registry, image_repository) (trivy_image_exposedsecrets) > 0,
               "resource", "$1", "image_repository", "(.*)"
             )
+          keep_firing_for: 6h
           labels:
             severity: warning
             alert_class: vulnerability

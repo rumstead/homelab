@@ -35,15 +35,17 @@ spec:
             scanJobAutomountServiceAccountToken: false
             # Rootfs scans read the image as the job's own container, so
             # kubelet pulls it and the job needs no registry access. Reading
-            # every file needs root, and DAC_READ_SEARCH lets it read files
-            # owned by an image's non-root user (distroless images).
+            # every file needs root, and DAC_OVERRIDE lets it read files and
+            # directories owned by an image's non-root user (distroless
+            # images). The namespace enforces Pod Security baseline, which
+            # allows DAC_OVERRIDE but not DAC_READ_SEARCH.
             scanJobPodTemplateContainerSecurityContext:
               allowPrivilegeEscalation: false
               capabilities:
                 drop:
                   - ALL
                 add:
-                  - DAC_READ_SEARCH
+                  - DAC_OVERRIDE
               privileged: false
               readOnlyRootFilesystem: true
               runAsUser: 0
