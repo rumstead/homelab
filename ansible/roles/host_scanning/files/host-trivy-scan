@@ -4,8 +4,12 @@
 Each executable in the scanned directories is resolved through symlinks and
 scanned on its own. Trivy reads the Go module and standard library versions
 embedded in Go binaries; other binaries are counted as found but not analyzed.
-The full findings go to trivy-report.json in the state directory.
+Executables that resolve into apt's directories are skipped, since apt patches
+them. Findings accepted in accepted.json (per binary, until an expiry date) are
+reported but not counted. The full findings go to trivy-report.json in the
+state directory.
 """
+import datetime
 import json
 import os
 import subprocess
@@ -17,6 +21,8 @@ from textfile_metrics import STATE_DIR, Metrics, _atomic_write, run_scanner, tes
 SCANNER = "host_trivy"
 DIRS = os.environ.get("HOST_TRIVY_DIRS", "/usr/local/bin:/home/rumstead/.local/bin:/home/rumstead/go/bin").split(":")
 CACHE_DIR = "/var/cache/host-scanning/trivy"
+ACCEPTED = "/usr/local/lib/host-scanning/accepted.json"
+APT_DIRS = ("/usr/bin/", "/usr/sbin/", "/bin/", "/sbin/", "/usr/lib/")
 SEVERITIES = ("CRITICAL", "HIGH", "MEDIUM", "LOW", "UNKNOWN")
 
 
@@ -26,8 +32,25 @@ def executables(directory):
         return
     for name in sorted(os.listdir(directory)):
         real = os.path.realpath(os.path.join(directory, name))
+        if real.startswith(APT_DIRS):
+            continue
         if os.path.isfile(real) and os.access(real, os.X_OK):
             yield name, real
+
+
+def load_accepted():
+    """Returns {binary: set of IDs} for acceptances that have not expired."""
+    try:
+        with open(ACCEPTED) as handle:
+            entries = json.load(handle)
+    except FileNotFoundError:
+        return {}
+    today = datetime.date.today().isoformat()
+    accepted = {}
+    for entry in entries:
+        if entry["expires"] >= today:
+            accepted.setdefault(entry["binary"], set()).update(entry["vulnerabilities"])
+    return accepted
 
 
 def scan(path):
@@ -42,6 +65,7 @@ def scan(path):
 
 
 def collect(metrics: Metrics, state):
+    accepted = load_accepted()
     report = []
     for directory in DIRS:
         found = analyzed = 0
@@ -50,11 +74,18 @@ def collect(metrics: Metrics, state):
             results = scan(real).get("Results") or []
             if results:
                 analyzed += 1
+            binary = os.path.join(directory, name)
+            binary_accepted = accepted.get(binary, set())
             counts = {(sev, fixable): 0 for sev in SEVERITIES for fixable in ("true", "false")}
+            accepted_count = 0
             for result in results:
                 for vuln in result.get("Vulnerabilities") or []:
+                    is_accepted = "*" in binary_accepted or vuln.get("VulnerabilityID") in binary_accepted
                     fixable = "true" if vuln.get("FixedVersion") else "false"
-                    counts[(vuln.get("Severity", "UNKNOWN"), fixable)] += 1
+                    if is_accepted:
+                        accepted_count += 1
+                    else:
+                        counts[(vuln.get("Severity", "UNKNOWN"), fixable)] += 1
                     report.append(
                         {
                             "binary": os.path.join(directory, name),
@@ -64,17 +95,24 @@ def collect(metrics: Metrics, state):
                             "vulnerability": vuln.get("VulnerabilityID"),
                             "severity": vuln.get("Severity"),
                             "fixed": vuln.get("FixedVersion") or "",
+                            "accepted": is_accepted,
                         }
                     )
             for (sev, fixable), count in counts.items():
                 metrics.add(
                     "host_trivy_vulnerabilities",
                     count,
-                    "Known vulnerabilities in a binary apt does not manage",
-                    binary=os.path.join(directory, name),
+                    "Known vulnerabilities in a binary apt does not manage, excluding accepted ones",
+                    binary=binary,
                     severity=sev,
                     fixable=fixable,
                 )
+            metrics.add(
+                "host_trivy_accepted_vulnerabilities",
+                accepted_count,
+                "Vulnerabilities in a binary covered by an unexpired acceptance",
+                binary=binary,
+            )
         metrics.add("host_trivy_binaries_found", found, "Executables found in a scanned directory", directory=directory)
         metrics.add(
             "host_trivy_binaries_analyzed",
