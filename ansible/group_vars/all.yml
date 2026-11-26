@@ -1,9 +1,9 @@
 ---
 # Versions. Renovate reads the comment above each pin.
 # renovate: datasource=github-releases depName=siderolabs/talos
-talos_version: v1.14.2
+talos_version: v1.14.7
 # renovate: datasource=github-releases depName=kubernetes/kubernetes extractVersion=^v(?<version>.+)$
-kubernetes_version: 1.36.5
+kubernetes_version: 1.36.7
 # Image Factory schematic for the vanilla metal image (no system extensions).
 talos_schematic: 376567988ad370138ad8b2698212367b8edcb69b5fd68c80be1f2ec7d603b4ba
 # renovate: datasource=github-releases depName=prometheus/node_exporter extractVersion=^v(?<version>.+)$

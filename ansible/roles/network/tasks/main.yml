@@ -59,6 +59,18 @@
     mode: "0600"
   notify: Generate netplan
 
+# The initramfs leaves a catch-all DHCP .network file in /run/systemd/network.
+# Without this file networkd manages the unused Wi-Fi card, which never comes
+# online, so every systemd-networkd-wait-online run times out. networkd reads it
+# at the next boot.
+- name: Leave Wi-Fi unmanaged by networkd
+  ansible.builtin.copy:
+    src: 10-wifi-unmanaged.network
+    dest: /etc/systemd/network/10-wifi-unmanaged.network
+    owner: root
+    group: root
+    mode: "0644"
+
 - name: Flush the netplan handler
   ansible.builtin.meta: flush_handlers
 

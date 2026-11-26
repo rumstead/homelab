@@ -1,0 +1,6 @@
+# Managed by the ansible network role: the host uses wired Ethernet only.
+[Match]
+Type=wlan
+
+[Link]
+Unmanaged=yes
