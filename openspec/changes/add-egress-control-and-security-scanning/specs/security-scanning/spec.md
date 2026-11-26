@@ -8,12 +8,16 @@ Trivy Operator SHALL scan every container image running in the cluster for known
 - **THEN** a VulnerabilityReport for it SHALL exist within 24 hours, and an alert SHALL be sent if it does not
 
 #### Scenario: Scanner stalls
-- **WHEN** scan jobs fail or the vulnerability database is older than three days
+- **WHEN** a running workload has had no Trivy results for six hours, or the operator is not scraped
 - **THEN** an alert email SHALL be sent
 
-#### Scenario: Fixable vulnerability
-- **WHEN** an image has a fixable critical or high vulnerability that is not in the ignore file
-- **THEN** an alert email SHALL be sent, grouped per workload and repeated at most weekly
+#### Scenario: Fixable vulnerability in the owner's image
+- **WHEN** an image under `ghcr.io/rumstead/` has a fixable critical or high vulnerability that is not accepted
+- **THEN** an alert email SHALL be sent, grouped per image and repeated at most weekly
+
+#### Scenario: Fixable critical in a third-party image
+- **WHEN** third-party images have fixable critical vulnerabilities
+- **THEN** one weekly digest email SHALL list them
 
 ### Requirement: Accepted Findings In The Repo
 Findings that are accepted rather than fixed SHALL be recorded in the repo with a reason and an expiry date, scoped to the finding and the affected image or resource, and alerts SHALL start only after the existing findings have been triaged. Metrics and emails SHALL NOT contain matched secret content.
@@ -27,7 +31,7 @@ Findings that are accepted rather than fixed SHALL be recorded in the repo with 
 - **THEN** it SHALL alert
 
 ### Requirement: Cluster Configuration Audit
-Trivy Operator SHALL audit workload configuration and RBAC and look for secrets baked into images, and SHALL email when a critical or high finding not in the ignore file appears.
+Trivy Operator SHALL audit workload configuration and RBAC and look for secrets baked into images. It SHALL email when a critical or high configuration finding appears in the owner's workloads or a secret appears in any image; other configuration and RBAC findings SHALL be shown on the dashboard.
 
 #### Scenario: New finding
 - **WHEN** a critical or high config audit, RBAC or baked-in secret finding appears

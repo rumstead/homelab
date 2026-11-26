@@ -106,9 +106,9 @@ Set `analytics.reporting_enabled: false`, `analytics.check_for_updates: false`, 
 - All namespaces are scanned, `kube-system` included, and init containers too. One scan job at a time (`scanJobsConcurrentLimit: 1`); reports for new images arrive as the queue allows, typically within an hour.
 - ServiceMonitor on, with the per-CVE metrics enabled. The pinned chart's metric names, and the label that carries the fixed version, are confirmed before any rule is written. Metrics and alerts carry the finding's ID and the affected resource, never matched secret content.
 - **Triage before alerting:** the first week is dashboard only. Each existing critical or high finding is either fixed (usually a Renovate bump) or accepted. Acceptances live in the repo with a reason and an expiry date, scoped to the finding and the affected image or resource, using the mechanism each report type supports (Trivy's ignore policy for vulnerabilities and secrets, the operator's per-check exclusions for config and RBAC). A plain global CVE ignore is not used, so the same CVE in a new image still alerts. After triage, any finding present is new, so the rules alert on presence:
-  - a fixable critical or high vulnerability, as soon as it is reported, grouped per workload, `repeat_interval: 7d`
-  - a critical or high config audit, RBAC or baked-in secret finding, `for: 15m`
-- **Scanner health:** alerts for a running workload with no report after 24 hours, a report older than its rescan interval, failed scan jobs, and a Trivy database older than 3 days, so a quiet dashboard cannot mean a stopped scanner.
+  - `trivy.ignoreUnfixed: true`, so every reported vulnerability has a fixed version. Third-party images change only when upstream ships, so alerts are split by ownership: the owner's images (`ghcr.io/rumstead/*`) email on fixable critical or high findings as soon as they are reported, grouped per image, `repeat_interval: 7d`; third-party images with fixable criticals arrive as one weekly digest listing them; everything else stays on the dashboard.
+  - critical or high config audit findings in the owner's workloads (`golf-etl`, `lifting-data`), `for: 15m`, and any secret baked into any image. Third-party config and RBAC findings (privileged by design in Cilium, cert-manager, Tailscale and the like) stay on the dashboard.
+- **Scanner health:** an alert when the operator is not scraped, and a coverage alert for running ReplicaSets, DaemonSets and StatefulSets with no Trivy results for 6 hours. Failed scan jobs are deleted and leave no report, so coverage is what shows them. The scan jobs keep `DAC_READ_SEARCH`, which root needs to read files owned by a distroless image's non-root user.
 
 ### Host scanning on crete
 - New Ansible role `host_scanning`. Every script:
@@ -193,7 +193,7 @@ Each alert class gets one received positive and one quiet negative before it cou
 
 ## Decisions Made With The Owner
 - Crete's update scripts stay as they are: unattended-upgrades already installs security updates, kernels included.
-- Vulnerability emails cover fixable critical and high findings, sent as soon as they are found and repeated at most weekly per workload or binary.
+- Vulnerability emails are split by ownership (decided after the first scan found fixable critical or high findings in all 33 images): the owner's images email on fixable critical and high findings right away, repeated at most weekly; third-party images with fixable criticals arrive as one weekly digest; host binaries email on fixable critical and high findings, with accepted findings expiring.
 - Broad TCP 443 for the Tailscale proxies; AdGuard limited to its upstream resolvers and GitHub's `185.199.108.0/22`.
 - The HaGeZi Threat Intelligence list is added to AdGuard: blocking known-malicious domains for the whole LAN is wanted, with the one-toggle undo documented.
 - A Grafana "Homelab weekly" dashboard holds the full picture, and a short Monday email points to it with headline figures. The email, not an outside heartbeat service, covers a dead alert path: its absence is the signal. Prometheus retention rises to 15 days for the week-over-week view.
