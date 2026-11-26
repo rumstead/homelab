@@ -10,6 +10,8 @@ talos_schematic: 376567988ad370138ad8b2698212367b8edcb69b5fd68c80be1f2ec7d603b4b
 node_exporter_version: 1.11.1
 # renovate: datasource=github-releases depName=ncabatoff/process-exporter extractVersion=^v(?<version>.+)$
 process_exporter_version: 0.8.7
+# renovate: datasource=github-releases depName=aquasecurity/trivy extractVersion=^v(?<version>.+)$
+trivy_version: 0.76.2
 # renovate: datasource=github-releases depName=getsops/sops extractVersion=^v(?<version>.+)$
 sops_version: 3.13.3
 # renovate: datasource=github-releases depName=FiloSottile/age extractVersion=^v(?<version>.+)$

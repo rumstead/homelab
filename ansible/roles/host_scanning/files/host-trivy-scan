@@ -1,0 +1,90 @@
+#!/usr/bin/env python3
+"""Scans crete's binaries that apt does not manage with Trivy.
+
+Each executable in the scanned directories is resolved through symlinks and
+scanned on its own. Trivy reads the Go module and standard library versions
+embedded in Go binaries; other binaries are counted as found but not analyzed.
+The full findings go to trivy-report.json in the state directory.
+"""
+import json
+import os
+import subprocess
+import sys
+
+sys.path.insert(0, "/usr/local/lib/host-scanning")
+from textfile_metrics import STATE_DIR, Metrics, _atomic_write, run_scanner, test_suffix  # noqa: E402
+
+SCANNER = "host_trivy"
+DIRS = os.environ.get("HOST_TRIVY_DIRS", "/usr/local/bin:/home/rumstead/.local/bin:/home/rumstead/go/bin").split(":")
+CACHE_DIR = "/var/cache/host-scanning/trivy"
+SEVERITIES = ("CRITICAL", "HIGH", "MEDIUM", "LOW", "UNKNOWN")
+
+
+def executables(directory):
+    """Yields (name, real path) for each executable file, following symlinks."""
+    if not os.path.isdir(directory):
+        return
+    for name in sorted(os.listdir(directory)):
+        real = os.path.realpath(os.path.join(directory, name))
+        if os.path.isfile(real) and os.access(real, os.X_OK):
+            yield name, real
+
+
+def scan(path):
+    result = subprocess.run(
+        ["trivy", "rootfs", "--scanners", "vuln", "--format", "json", "--quiet", "--cache-dir", CACHE_DIR, path],
+        capture_output=True,
+        text=True,
+        check=True,
+        timeout=900,
+    )
+    return json.loads(result.stdout)
+
+
+def collect(metrics: Metrics, state):
+    report = []
+    for directory in DIRS:
+        found = analyzed = 0
+        for name, real in executables(directory):
+            found += 1
+            results = scan(real).get("Results") or []
+            if results:
+                analyzed += 1
+            counts = {(sev, fixable): 0 for sev in SEVERITIES for fixable in ("true", "false")}
+            for result in results:
+                for vuln in result.get("Vulnerabilities") or []:
+                    fixable = "true" if vuln.get("FixedVersion") else "false"
+                    counts[(vuln.get("Severity", "UNKNOWN"), fixable)] += 1
+                    report.append(
+                        {
+                            "binary": os.path.join(directory, name),
+                            "path": real,
+                            "package": vuln.get("PkgName"),
+                            "installed": vuln.get("InstalledVersion"),
+                            "vulnerability": vuln.get("VulnerabilityID"),
+                            "severity": vuln.get("Severity"),
+                            "fixed": vuln.get("FixedVersion") or "",
+                        }
+                    )
+            for (sev, fixable), count in counts.items():
+                metrics.add(
+                    "host_trivy_vulnerabilities",
+                    count,
+                    "Known vulnerabilities in a binary apt does not manage",
+                    binary=os.path.join(directory, name),
+                    severity=sev,
+                    fixable=fixable,
+                )
+        metrics.add("host_trivy_binaries_found", found, "Executables found in a scanned directory", directory=directory)
+        metrics.add(
+            "host_trivy_binaries_analyzed",
+            analyzed,
+            "Executables Trivy could read package versions from",
+            directory=directory,
+        )
+    _atomic_write(os.path.join(STATE_DIR, f"trivy-report{test_suffix()}.json"), json.dumps(report, indent=2), mode=0o600)
+
+
+if __name__ == "__main__":
+    os.makedirs(CACHE_DIR, exist_ok=True)
+    sys.exit(run_scanner(SCANNER, collect))

@@ -1,0 +1,81 @@
+#!/usr/bin/env python3
+"""Runs a Lynis audit and reports warnings that were not in the previous run.
+
+The first complete run only sets the baseline. A run whose report has no end
+time is treated as incomplete and fails, so it never replaces the baseline.
+New warnings are written to a dated file in the state directory.
+"""
+import datetime
+import os
+import subprocess
+import sys
+
+sys.path.insert(0, "/usr/local/lib/host-scanning")
+from textfile_metrics import STATE_DIR, Metrics, _atomic_write, run_scanner, test_suffix  # noqa: E402
+
+SCANNER = "host_lynis"
+REPORT = os.path.join(STATE_DIR, f"lynis-report{test_suffix()}.dat")
+
+
+def parse_report(path):
+    values, warnings = {}, {}
+    with open(path) as handle:
+        for line in handle:
+            key, _, value = line.rstrip("\n").partition("=")
+            if key == "warning[]":
+                # A test can raise several warnings, so a warning is its ID and text.
+                test_id, _, rest = value.partition("|")
+                warnings[f"{test_id}|{rest.split('|')[0]}"] = test_id
+            else:
+                values[key] = value
+    return values, warnings
+
+
+def collect(metrics: Metrics, state):
+    # Lynis clears its report only partway through startup, so an early exit
+    # would leave last week's complete report behind.
+    try:
+        os.remove(REPORT)
+    except FileNotFoundError:
+        pass
+    subprocess.run(
+        ["lynis", "audit", "system", "--quiet", "--no-colors", "--report-file", REPORT, "--logfile", "/var/log/lynis.log"],
+        check=True,
+        timeout=3600,
+    )
+    values, warnings = parse_report(REPORT)
+    if not values.get("report_datetime_end"):
+        raise RuntimeError("Lynis report is incomplete (no report_datetime_end)")
+    index = int(values["hardening_index"])
+
+    previous = state.get("warnings")
+    new = [] if previous is None else sorted(w for w in warnings if w not in previous)
+    if new:
+        stamp = datetime.date.today().isoformat()
+        text = "".join(w.replace("|", "\t", 1) + "\n" for w in new)
+        _atomic_write(os.path.join(STATE_DIR, f"lynis-new-warnings-{stamp}{test_suffix()}.txt"), text)
+    state["new_warnings_total"] = state.get("new_warnings_total", 0) + len(new)
+    state["previous_hardening_index"] = state.get("hardening_index", index)
+    state["hardening_index"] = index
+    state["warnings"] = sorted(warnings)
+    state["lynis_version"] = values.get("lynis_version", "")
+
+    metrics.add("host_lynis_hardening_index", index, "Lynis hardening index of the last complete audit")
+    metrics.add(
+        "host_lynis_previous_hardening_index",
+        state["previous_hardening_index"],
+        "Lynis hardening index of the audit before the last one",
+    )
+    metrics.add("host_lynis_warnings", len(warnings), "Warnings in the last complete Lynis audit")
+    metrics.add(
+        "host_lynis_new_warnings_total",
+        state["new_warnings_total"],
+        "Warnings that were not in the previous complete audit",
+        metric_type="counter",
+    )
+    metrics.add("host_lynis_info", 1, "Lynis version of the last audit", version=state["lynis_version"])
+
+
+if __name__ == "__main__":
+    os.makedirs(STATE_DIR, exist_ok=True)
+    sys.exit(run_scanner(SCANNER, collect))

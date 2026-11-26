@@ -1,0 +1,22 @@
+---
+host_scanning_trivy_base: "https://github.com/aquasecurity/trivy/releases/download/v{{ trivy_version }}"
+host_scanning_textfile_dir: /var/lib/node_exporter/textfile
+host_scanning_state_dir: /var/lib/host-scanning
+host_scanning_lib_dir: /usr/local/lib/host-scanning
+# Directories of binaries apt does not manage. Trivy reads the Go module
+# versions embedded in Go binaries; other binaries are counted but not covered.
+host_scanning_trivy_dirs:
+  - /usr/local/bin
+  - /home/rumstead/.local/bin
+  - /home/rumstead/go/bin
+# name: the script and unit name; metrics: its file in the textfile directory
+host_scanning_scanners:
+  - name: host-trivy-scan
+    schedule: "*-*-* 04:00:00 UTC"
+    metrics: host_trivy
+  - name: host-lynis-audit
+    schedule: "Sun *-*-* 05:00:00 UTC"
+    metrics: host_lynis
+  - name: host-update-health
+    schedule: hourly
+    metrics: host_updates

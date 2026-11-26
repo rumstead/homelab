@@ -1,0 +1,159 @@
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: host-scanning-alerts
+  namespace: monitoring
+  labels:
+    release: kube-prometheus-stack
+spec:
+  groups:
+    - name: host-scanning.rules
+      rules:
+        # Go binaries apt does not manage (talosctl, sops, age, the exporters).
+        - alert: HostBinaryVulnerability
+          expr: |
+            label_replace(
+              sum by (binary, test) (
+                host_trivy_vulnerabilities{job="host-node-exporter", fixable="true", severity=~"CRITICAL|HIGH"}
+              ) > 0,
+              "resource", "$1", "binary", "(.*)"
+            )
+          labels:
+            severity: warning
+            alert_class: vulnerability
+            scanner: host_trivy
+          annotations:
+            summary: "{{ $labels.binary }} has {{ $value }} fixable critical or high vulnerabilities"
+            description: >-
+              Trivy found known vulnerabilities with a fixed version in {{ $labels.binary }}.
+              Update the binary (its pin in ansible/group_vars/all.yml for the ones Ansible installs).
+            runbook: |
+              1. Findings: ssh 192.168.1.234 'sudo jq ".[] | select(.binary == \"{{ $labels.binary }}\")" /var/lib/host-scanning/trivy-report.json'
+
+        - alert: HostLynisNewWarnings
+          expr: increase(host_lynis_new_warnings_total{job="host-node-exporter"}[2h]) > 0
+          labels:
+            severity: warning
+            alert_class: host
+            scanner: host_lynis
+          annotations:
+            summary: "Lynis found new hardening warnings on crete"
+            description: >-
+              The last weekly Lynis audit reported warnings the previous audit did not.
+            runbook: |
+              1. New warnings: ssh 192.168.1.234 'sudo ls -t /var/lib/host-scanning/lynis-new-warnings-*.txt | head -1 | sudo xargs cat'
+
+        - alert: HostLynisHardeningDropped
+          expr: |
+            host_lynis_previous_hardening_index{job="host-node-exporter"}
+              - host_lynis_hardening_index{job="host-node-exporter"} >= 5
+          labels:
+            severity: warning
+            alert_class: host
+            scanner: host_lynis
+          annotations:
+            summary: "crete's Lynis hardening index dropped by {{ $value }}"
+            description: >-
+              The hardening index of the last weekly audit is 5 or more below the audit before it.
+
+        - alert: HostSecurityUpdatesPending
+          expr: host_updates_security_oldest_pending_seconds{job="host-node-exporter"} > 3 * 86400
+          labels:
+            severity: warning
+            alert_class: host
+            scanner: host_updates
+          annotations:
+            summary: "A security update on crete has been pending for {{ $value | humanizeDuration }}"
+            description: >-
+              unattended-upgrades has not installed a pending security or ESM update for over 3 days.
+            runbook: |
+              1. Pending: ssh 192.168.1.234 'apt list --upgradable 2>/dev/null | grep -i security'
+              2. Why: ssh 192.168.1.234 'sudo tail -50 /var/log/unattended-upgrades/unattended-upgrades.log'
+
+        - alert: HostUpdatesNotRunning
+          expr: |
+            label_replace(time() - host_updates_unattended_last_success_timestamp_seconds{job="host-node-exporter"} > 2 * 86400, "updater", "unattended-upgrades", "", "")
+            or
+            label_replace(time() - host_updates_auto_update_last_success_timestamp_seconds{job="host-node-exporter"} > 2 * 86400, "updater", "host-auto-update", "", "")
+            or
+            label_replace(time() - host_updates_lists_timestamp_seconds{job="host-node-exporter"} > 2 * 86400, "updater", "apt package lists", "", "")
+          labels:
+            severity: warning
+            alert_class: host
+            scanner: host_updates
+          annotations:
+            summary: "{{ $labels.updater }} on crete has not succeeded for {{ $value | humanizeDuration }}"
+            description: >-
+              crete's updates may have stopped. Check the updater's last run.
+
+        - alert: HostRebootPending
+          expr: host_updates_reboot_required_seconds{job="host-node-exporter"} > 8 * 86400
+          labels:
+            severity: warning
+            alert_class: host
+            scanner: host_updates
+          annotations:
+            summary: "crete has needed a reboot for {{ $value | humanizeDuration }}"
+            description: >-
+              The Sunday reboot window should have rebooted crete. Check host-reboot-window.
+
+    - name: host-scanner-health.rules
+      rules:
+        # A scanner that stops running keeps its last results, so the age of
+        # its last success is what shows it stopped.
+        - alert: HostScannerStale
+          expr: |
+            label_replace(time() - host_trivy_last_success_timestamp_seconds{job="host-node-exporter"} > 2 * 86400, "scanner", "host_trivy", "", "")
+            or
+            label_replace(time() - host_lynis_last_success_timestamp_seconds{job="host-node-exporter"} > 14 * 86400, "scanner", "host_lynis", "", "")
+            or
+            label_replace(time() - host_updates_last_success_timestamp_seconds{job="host-node-exporter"} > 2 * 3600, "scanner", "host_updates", "", "")
+          labels:
+            severity: warning
+            alert_class: host
+          annotations:
+            summary: "{{ $labels.scanner }} on crete last succeeded {{ $value | humanizeDuration }} ago"
+            description: >-
+              The scanner's results are older than twice its schedule.
+            runbook: |
+              1. ssh 192.168.1.234 'systemctl list-timers "host-*"; journalctl -u "host-*" --since -2d | tail -50'
+
+        - alert: HostScannerMissing
+          expr: |
+            label_replace(absent(host_trivy_last_success_timestamp_seconds{job="host-node-exporter", test!="true"}), "scanner", "host_trivy", "", "")
+            or
+            label_replace(absent(host_lynis_last_success_timestamp_seconds{job="host-node-exporter", test!="true"}), "scanner", "host_lynis", "", "")
+            or
+            label_replace(absent(host_updates_last_success_timestamp_seconds{job="host-node-exporter", test!="true"}), "scanner", "host_updates", "", "")
+          for: 30m
+          labels:
+            severity: warning
+            alert_class: host
+          annotations:
+            summary: "{{ $labels.scanner }} on crete has no results"
+            description: >-
+              The scanner's metrics file is missing from /var/lib/node_exporter/textfile.
+
+        - alert: HostTextfileScrapeError
+          expr: node_textfile_scrape_error{job="host-node-exporter"} == 1
+          for: 15m
+          labels:
+            severity: warning
+            alert_class: host
+            scanner: textfile
+          annotations:
+            summary: "node_exporter on crete cannot read a textfile metrics file"
+            description: >-
+              A .prom file in /var/lib/node_exporter/textfile is unreadable or malformed.
+
+        - alert: HostExporterDown
+          expr: up{job="host-node-exporter"} == 0
+          for: 10m
+          labels:
+            severity: warning
+            alert_class: host
+            scanner: node_exporter
+          annotations:
+            summary: "Prometheus cannot scrape node_exporter on crete"
+            description: >-
+              Host metrics, including every host scanner's results, are not being collected.

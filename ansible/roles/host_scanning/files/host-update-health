@@ -1,0 +1,111 @@
+#!/usr/bin/env python3
+"""Reports whether crete's updates are being applied.
+
+- unattended-upgrades: apt's upgrade stamp, which apt.systemd.daily touches only
+  when unattended-upgrade exits 0 (a run with nothing to install counts)
+- host-auto-update: the systemd service's last successful exit, remembered
+  across reboots in the state file
+- package lists: apt's update-success stamp
+- pending security updates: an `apt-get -s dist-upgrade` simulation, counting
+  packages whose candidate comes from a security or ESM pocket, each with the
+  time it was first seen pending
+- reboot-required: how long /run/reboot-required has existed, from the state
+  file rather than the file's mtime
+"""
+import os
+import re
+import subprocess
+import sys
+import time
+
+sys.path.insert(0, "/usr/local/lib/host-scanning")
+from textfile_metrics import Metrics, run_scanner  # noqa: E402
+
+SCANNER = "host_updates"
+PERIODIC = "/var/lib/apt/periodic"
+SECURITY_POCKET = re.compile(r"-security|ESM", re.IGNORECASE)
+# Inst libtiff6 [4.7.0-3ubuntu5] (4.7.0-3ubuntu5.1 Ubuntu:26.04/resolute-security [amd64])
+INST_LINE = re.compile(r"^Inst (\S+) (?:\[[^\]]*\] )?\((\S+) ([^\[]+?)\s*\[")
+
+
+def stamp_age(name):
+    try:
+        return os.path.getmtime(os.path.join(PERIODIC, name))
+    except FileNotFoundError:
+        return None
+
+
+def last_auto_update_success(state):
+    out = subprocess.run(
+        ["systemctl", "show", "host-auto-update.service", "-p", "Result", "-p", "ExecMainExitTimestamp", "--timestamp=unix"],
+        capture_output=True,
+        text=True,
+        check=True,
+    ).stdout
+    props = dict(line.split("=", 1) for line in out.splitlines() if "=" in line)
+    exited = props.get("ExecMainExitTimestamp", "").lstrip("@")
+    if props.get("Result") == "success" and exited:
+        state["host_auto_update_success"] = max(float(exited), state.get("host_auto_update_success", 0))
+    return state.get("host_auto_update_success")
+
+
+def pending_security():
+    out = subprocess.run(
+        ["apt-get", "-s", "-o", "Debug::NoLocking=1", "dist-upgrade"],
+        capture_output=True,
+        text=True,
+        check=True,
+        env={**os.environ, "LC_ALL": "C"},
+    ).stdout
+    pending = {}
+    for line in out.splitlines():
+        match = INST_LINE.match(line)
+        if match and SECURITY_POCKET.search(match.group(3)):
+            pending[match.group(1)] = match.group(2)
+    return pending
+
+
+def collect(metrics: Metrics, state):
+    now = time.time()
+
+    uu = stamp_age("upgrade-stamp")
+    if uu is not None:
+        metrics.add(
+            "host_updates_unattended_last_success_timestamp_seconds", int(uu), "Last successful unattended-upgrades run"
+        )
+    auto = last_auto_update_success(state)
+    if auto is not None:
+        metrics.add(
+            "host_updates_auto_update_last_success_timestamp_seconds",
+            int(auto),
+            "Last successful host-auto-update run",
+        )
+    lists = stamp_age("update-success-stamp")
+    if lists is not None:
+        metrics.add("host_updates_lists_timestamp_seconds", int(lists), "Last successful apt package list update")
+
+    pending = pending_security()
+    first_seen = {pkg: state.get("pending_first_seen", {}).get(pkg, now) for pkg in pending}
+    state["pending_first_seen"] = first_seen
+    metrics.add("host_updates_security_pending", len(pending), "Security and ESM updates not yet installed")
+    oldest = now - min(first_seen.values()) if first_seen else 0
+    metrics.add(
+        "host_updates_security_oldest_pending_seconds",
+        int(oldest),
+        "How long the oldest pending security update has been pending",
+    )
+
+    if os.path.exists("/run/reboot-required"):
+        state.setdefault("reboot_required_since", now)
+    else:
+        state.pop("reboot_required_since", None)
+    since = state.get("reboot_required_since")
+    metrics.add(
+        "host_updates_reboot_required_seconds",
+        int(now - since) if since else 0,
+        "How long a reboot has been required",
+    )
+
+
+if __name__ == "__main__":
+    sys.exit(run_scanner(SCANNER, collect))
