@@ -24,6 +24,14 @@ host_scanning_trivy_accepted:
     vulnerabilities: ["*"]
     expires: "2027-01-26"
     reason: Latest age release; the findings are in the Go standard library it was built with.
+  - binary: /usr/local/bin/hubble
+    vulnerabilities: ["*"]
+    expires: "2027-01-26"
+    reason: Latest hubble release; the finding is in a module it was built with.
+  - binary: /home/rumstead/.local/bin/ksops
+    vulnerabilities: ["*"]
+    expires: "2027-01-26"
+    reason: Latest ksops release (v4.5.1) is built with an old Go toolchain; used only for local kustomize builds.
   - binary: /usr/local/bin/process-exporter
     vulnerabilities: ["*"]
     expires: "2027-02-26"
