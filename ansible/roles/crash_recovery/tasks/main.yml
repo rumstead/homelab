@@ -125,29 +125,44 @@
     msg: "{{ crash_recovery_watchdog_module }} found no watchdog, so the host has no hardware watchdog."
   when: not crash_recovery_watchdog_dev.stat.exists
 
-- name: Keep the SATA link out of low-power states
-  ansible.builtin.copy:
-    src: 90-sata-lpm.rules
-    dest: /etc/udev/rules.d/90-sata-lpm.rules
-    mode: "0644"
+- name: Check for SATA disks
+  ansible.builtin.command: lsblk -dn -o TRAN
+  register: crash_recovery_transports
+  check_mode: false
+  changed_when: false
 
-# Ports whose firmware owns the setting report keep_firmware_settings and
-# reject writes, so only ports with another policy are changed.
-- name: Apply the SATA link policy to running ports
-  ansible.builtin.shell: |
-    set -euo pipefail
-    for policy in /sys/class/scsi_host/host*/link_power_management_policy; do
-      [ -r "$policy" ] || continue
-      current=$(cat "$policy")
-      case "$current" in
-        max_performance|keep_firmware_settings) ;;
-        *) echo max_performance > "$policy" && echo "changed $policy from $current" ;;
-      esac
-    done
-  args:
-    executable: /bin/bash
-  register: crash_recovery_lpm
-  changed_when: crash_recovery_lpm.stdout | length > 0
+- name: Keep the SATA link out of low-power states
+  when: "'sata' in crash_recovery_transports.stdout_lines"
+  block:
+    - name: Install the SATA link policy rule
+      ansible.builtin.copy:
+        src: 90-sata-lpm.rules
+        dest: /etc/udev/rules.d/90-sata-lpm.rules
+        mode: "0644"
+
+    # Ports whose firmware owns the setting report keep_firmware_settings and
+    # reject writes, so only ports with another policy are changed.
+    - name: Apply the SATA link policy to running ports
+      ansible.builtin.shell: |
+        set -euo pipefail
+        for policy in /sys/class/scsi_host/host*/link_power_management_policy; do
+          [ -r "$policy" ] || continue
+          current=$(cat "$policy")
+          case "$current" in
+            max_performance|keep_firmware_settings) ;;
+            *) echo max_performance > "$policy" && echo "changed $policy from $current" ;;
+          esac
+        done
+      args:
+        executable: /bin/bash
+      register: crash_recovery_lpm
+      changed_when: crash_recovery_lpm.stdout | length > 0
+
+- name: Remove the SATA link policy rule when there are no SATA disks
+  ansible.builtin.file:
+    path: /etc/udev/rules.d/90-sata-lpm.rules
+    state: absent
+  when: "'sata' not in crash_recovery_transports.stdout_lines"
 
 - name: Flush the journal to disk every 15s
   ansible.builtin.copy:
@@ -156,24 +171,40 @@
     mode: "0644"
   notify: Restart journald
 
-# "install ... /bin/false" also blocks loads by name, which "blacklist" alone does not.
-- name: Keep the unused RTL8852BE Wi-Fi driver unloaded
-  ansible.builtin.copy:
-    src: blacklist-rtw89.conf
-    dest: /etc/modprobe.d/blacklist-rtw89.conf
-    mode: "0644"
-
-- name: Check whether the RTL8852BE Wi-Fi driver is loaded
-  ansible.builtin.command: grep -qw '^rtw89_8852be' /proc/modules
-  register: crash_recovery_rtw89
+- name: Check for the RTL8852BE Wi-Fi card
+  ansible.builtin.shell: grep -qs v000010ECd0000B852 /sys/bus/pci/devices/*/modalias
+  register: crash_recovery_rtw89_card
   check_mode: false
   changed_when: false
-  failed_when: crash_recovery_rtw89.rc not in [0, 1]
+  failed_when: crash_recovery_rtw89_card.rc not in [0, 1, 2]
 
-- name: Unload the RTL8852BE Wi-Fi driver
-  ansible.builtin.command: modprobe -r rtw89_8852be
-  when: crash_recovery_rtw89.rc == 0
-  changed_when: true
+- name: Keep the unused RTL8852BE Wi-Fi driver unloaded
+  when: crash_recovery_rtw89_card.rc == 0
+  block:
+    # "install ... /bin/false" also blocks loads by name, which "blacklist" alone does not.
+    - name: Blacklist the RTL8852BE Wi-Fi driver
+      ansible.builtin.copy:
+        src: blacklist-rtw89.conf
+        dest: /etc/modprobe.d/blacklist-rtw89.conf
+        mode: "0644"
+
+    - name: Check whether the RTL8852BE Wi-Fi driver is loaded
+      ansible.builtin.command: grep -qw '^rtw89_8852be' /proc/modules
+      register: crash_recovery_rtw89
+      check_mode: false
+      changed_when: false
+      failed_when: crash_recovery_rtw89.rc not in [0, 1]
+
+    - name: Unload the RTL8852BE Wi-Fi driver
+      ansible.builtin.command: modprobe -r rtw89_8852be
+      when: crash_recovery_rtw89.rc == 0
+      changed_when: true
+
+- name: Remove the RTL8852BE blacklist when there is no such card
+  ansible.builtin.file:
+    path: /etc/modprobe.d/blacklist-rtw89.conf
+    state: absent
+  when: crash_recovery_rtw89_card.rc != 0
 
 # The decoder lives at a root-owned path so the boot service never runs a
 # file from a user-writable directory.
