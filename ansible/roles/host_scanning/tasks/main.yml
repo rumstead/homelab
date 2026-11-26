@@ -68,6 +68,14 @@
     - { path: "{{ host_scanning_lib_dir }}", mode: "0755" }
     - { path: /var/cache/host-scanning, mode: "0700" }
 
+- name: Write the accepted host findings
+  ansible.builtin.copy:
+    dest: "{{ host_scanning_lib_dir }}/accepted.json"
+    owner: root
+    group: root
+    mode: "0644"
+    content: "{{ host_scanning_trivy_accepted | to_nice_json }}\n"
+
 - name: Install the shared metrics helper
   ansible.builtin.copy:
     src: textfile_metrics.py

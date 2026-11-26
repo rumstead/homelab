@@ -9,6 +9,25 @@ host_scanning_trivy_dirs:
   - /usr/local/bin
   - /home/rumstead/.local/bin
   - /home/rumstead/go/bin
+# Findings accepted instead of fixed, per binary. "*" accepts every current
+# finding in that binary. An acceptance stops applying after its expiry date.
+host_scanning_trivy_accepted:
+  - binary: /usr/local/bin/sops
+    vulnerabilities: ["*"]
+    expires: "2027-01-26"
+    reason: Latest sops release; the findings are in the Go toolchain and modules it was built with.
+  - binary: /usr/local/bin/age
+    vulnerabilities: ["*"]
+    expires: "2027-01-26"
+    reason: Latest age release; the findings are in the Go standard library it was built with.
+  - binary: /usr/local/bin/age-keygen
+    vulnerabilities: ["*"]
+    expires: "2027-01-26"
+    reason: Latest age release; the findings are in the Go standard library it was built with.
+  - binary: /usr/local/bin/process-exporter
+    vulnerabilities: ["*"]
+    expires: "2027-02-26"
+    reason: Latest process-exporter release is built with Go 1.23; replace the exporter or build it from source.
 # name: the script and unit name; metrics: its file in the textfile directory
 host_scanning_scanners:
   - name: host-trivy-scan
