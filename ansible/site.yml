@@ -13,6 +13,8 @@
       tags: [crash_recovery]
     - role: exporters
       tags: [exporters]
+    - role: host_scanning
+      tags: [host_scanning]
     - role: auto_updates
       tags: [auto_updates]
     - role: desktop

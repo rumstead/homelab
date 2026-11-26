@@ -1,0 +1,138 @@
+---
+- name: Install Lynis
+  ansible.builtin.apt:
+    name: lynis
+    state: present
+
+- name: Read the installed Trivy version
+  ansible.builtin.command: /usr/local/bin/trivy --version
+  register: host_scanning_trivy_version
+  check_mode: false
+  changed_when: false
+  failed_when: false
+
+- name: Install the pinned Trivy release
+  when: >-
+    (host_scanning_trivy_version.stdout | regex_search('Version: ([0-9.]+)', '\\1') or ['']) | first
+    != trivy_version
+  block:
+    - name: Create a download directory for Trivy
+      ansible.builtin.tempfile:
+        state: directory
+      register: host_scanning_tmp
+      check_mode: false
+      changed_when: false
+
+    - name: Download Trivy
+      ansible.builtin.get_url:
+        url: "{{ host_scanning_trivy_base }}/trivy_{{ trivy_version }}_Linux-64bit.tar.gz"
+        dest: "{{ host_scanning_tmp.path }}/trivy.tar.gz"
+        checksum: "sha256:{{ host_scanning_trivy_base }}/trivy_{{ trivy_version }}_checksums.txt"
+        mode: "0644"
+      check_mode: false
+
+    - name: Unpack Trivy
+      ansible.builtin.unarchive:
+        src: "{{ host_scanning_tmp.path }}/trivy.tar.gz"
+        dest: "{{ host_scanning_tmp.path }}"
+        remote_src: true
+        include: [trivy]
+      check_mode: false
+
+    - name: Copy Trivy to /usr/local/bin
+      ansible.builtin.copy:
+        src: "{{ host_scanning_tmp.path }}/trivy"
+        dest: /usr/local/bin/trivy
+        remote_src: true
+        owner: root
+        group: root
+        mode: "0755"
+  always:
+    - name: Remove the Trivy download directory
+      ansible.builtin.file:
+        path: "{{ host_scanning_tmp.path }}"
+        state: absent
+      when: host_scanning_tmp.path is defined
+      check_mode: false
+      changed_when: false
+
+- name: Create the scanner directories
+  ansible.builtin.file:
+    path: "{{ item.path }}"
+    state: directory
+    owner: root
+    group: root
+    mode: "{{ item.mode }}"
+  loop:
+    - { path: "{{ host_scanning_state_dir }}", mode: "0700" }
+    - { path: "{{ host_scanning_lib_dir }}", mode: "0755" }
+    - { path: /var/cache/host-scanning, mode: "0700" }
+
+- name: Install the shared metrics helper
+  ansible.builtin.copy:
+    src: textfile_metrics.py
+    dest: "{{ host_scanning_lib_dir }}/textfile_metrics.py"
+    owner: root
+    group: root
+    mode: "0644"
+
+- name: Install the scanners
+  ansible.builtin.copy:
+    src: "{{ item }}"
+    dest: "/usr/local/sbin/{{ item }}"
+    owner: root
+    group: root
+    mode: "0755"
+  loop: "{{ host_scanning_timers.keys() | list }}"
+
+- name: Install the scanner services
+  ansible.builtin.copy:
+    dest: "/etc/systemd/system/{{ item }}.service"
+    owner: root
+    group: root
+    mode: "0644"
+    content: |
+      [Unit]
+      Description=Host scanner {{ item }}
+      After=network-online.target
+      Wants=network-online.target
+
+      [Service]
+      Type=oneshot
+      ExecStart=/usr/local/sbin/{{ item }}
+      Nice=10
+      IOSchedulingClass=idle
+  loop: "{{ host_scanning_timers.keys() | list }}"
+  notify: Reload systemd for host scanning
+
+- name: Install the scanner timers
+  ansible.builtin.copy:
+    dest: "/etc/systemd/system/{{ item.key }}.timer"
+    owner: root
+    group: root
+    mode: "0644"
+    content: |
+      [Unit]
+      Description=Run {{ item.key }} on a schedule
+
+      [Timer]
+      OnCalendar={{ item.value }}
+      RandomizedDelaySec=15m
+      Persistent=true
+
+      [Install]
+      WantedBy=timers.target
+  loop: "{{ host_scanning_timers | dict2items }}"
+  notify: Reload systemd for host scanning
+
+- name: Flush the systemd reload
+  ansible.builtin.meta: flush_handlers
+
+# In check mode the unit files above are not written yet.
+- name: Enable the scanner timers
+  ansible.builtin.systemd_service:
+    name: "{{ item }}.timer"
+    enabled: true
+    state: started
+  loop: "{{ host_scanning_timers.keys() | list }}"
+  ignore_errors: "{{ ansible_check_mode }}"

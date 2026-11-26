@@ -1,0 +1,16 @@
+---
+host_scanning_trivy_base: "https://github.com/aquasecurity/trivy/releases/download/v{{ trivy_version }}"
+host_scanning_textfile_dir: /var/lib/node_exporter/textfile
+host_scanning_state_dir: /var/lib/host-scanning
+host_scanning_lib_dir: /usr/local/lib/host-scanning
+# Directories of binaries apt does not manage. Trivy reads the Go module
+# versions embedded in Go binaries; other binaries are counted but not covered.
+host_scanning_trivy_dirs:
+  - /usr/local/bin
+  - /home/rumstead/.local/bin
+  - /home/rumstead/go/bin
+# name: systemd OnCalendar schedule
+host_scanning_timers:
+  host-trivy-scan: "*-*-* 04:00:00 UTC"
+  host-lynis-audit: "Sun *-*-* 05:00:00 UTC"
+  host-update-health: "hourly"
