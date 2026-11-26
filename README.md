@@ -2,12 +2,12 @@
 
 Kubernetes homelab on an Ubuntu mini PC using Talos Linux VMs, Argo CD GitOps, Cilium networking, Gateway API ingress, cert-manager PKI, AdGuard DNS, and Prometheus/Grafana monitoring.
 
-Last updated: 2026-11-09
+Last updated: 2026-11-26
 
 ## Overview
 
-- Host: ACEMAGICIAN Kron Mini K1 Mini PC (Ryzen 7 5825U, 32GB RAM, 512GB SSD)
-- OS: Ubuntu
+- Host: Lenovo ThinkCentre M70q Gen 3 Tiny (Core i7-12700T, 32GB RAM, 512GB NVMe SSD)
+- OS: Ubuntu Server 26.04
 - Cluster: 2-node Talos Kubernetes
   - `talos-controlplane`
   - `talos-worker`
@@ -59,7 +59,7 @@ Gateway configuration: [kubernetes/manifests/gateway/homelab-gateway.yaml](kuber
 
 [ansible/site.yml](ansible/site.yml) configures the host, creates the Talos VMs, bootstraps the cluster and installs Cilium and Argo CD. Every step checks the current state first, so running it against a working host changes nothing. Run it from the repo root.
 
-1. Install Ubuntu 24.04 over Ethernet.
+1. Install Ubuntu Server 26.04 over Ethernet with the OpenSSH server. In the storage step, grow `ubuntu-lv` to the whole disk: the installer leaves most of it unallocated.
 2. Restore `~/.config/sops/age/keys.txt` and `~/.ssh` from the backup. The age key decrypts [talos/secrets.sops.yaml](talos/secrets.sops.yaml) and every `*.sops.yaml` secret.
 3. Check DNS with `resolvectl query github.com`. The router forwards DNS to AdGuard, which runs in the cluster, and falls back to its public secondary while AdGuard is down. If the lookup fails, use `sudo resolvectl dns <nic> 1.1.1.1` until the cluster is up.
 4. Install Ansible, clone the repo and run the playbook in `tmux`:
@@ -70,7 +70,7 @@ Gateway configuration: [kubernetes/manifests/gateway/homelab-gateway.yaml](kuber
    ansible-playbook ansible/site.yml -K
    ```
 
-5. If the run stops naming an installer netplan file (such as `/etc/netplan/50-cloud-init.yaml`) that also configures the NIC, delete that file and run it again. The run then writes the `br0` bridge to netplan and stops: reboot, then run the playbook again.
+5. If the run stops naming an installer netplan file (such as `/etc/netplan/00-installer-config.yaml`) that also configures the NIC or hands networking to NetworkManager, delete that file and run it again. The run then writes the `br0` bridge to netplan and stops. Make sure no other machine holds `192.168.1.234`, reboot, then run the playbook again.
 6. Log the VS Code tunnel in once: `code tunnel user login`.
 7. xrdp listens on loopback only: connect with `ssh -L 3389:127.0.0.1:3389 acemagic` and point the RDP client at `localhost`.
 

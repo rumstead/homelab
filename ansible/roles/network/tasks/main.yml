@@ -27,11 +27,14 @@
     fail_msg: "{{ host_nic }} not found. Interfaces: {{ ansible_facts.interfaces | join(', ') }}. Fix host_nic in ansible/group_vars/all.yml."
     quiet: true
 
-# Installer files can hold a Wi-Fi password, so only file names are read.
+# Installer files can hold a Wi-Fi password, so only file names are read. A
+# NetworkManager renderer takes every NIC without naming it.
 - name: Find other netplan files that configure the host NIC
   ansible.builtin.shell: |
     set -o pipefail
-    grep -lw {{ host_nic | quote }} /etc/netplan/*.yaml | grep -vx /etc/netplan/01-ethernet-cfg.yaml || true
+    { grep -lw {{ host_nic | quote }} /etc/netplan/*.yaml
+      grep -liE 'renderer:[[:space:]]*NetworkManager' /etc/netplan/*.yaml
+    } 2> /dev/null | sort -u | grep -vx /etc/netplan/01-ethernet-cfg.yaml || true
   args:
     executable: /bin/bash
   register: network_conflicts
@@ -41,7 +44,9 @@
 
 - name: Stop when another netplan file configures the host NIC
   ansible.builtin.fail:
-    msg: "Remove or rename these netplan files, they also configure {{ host_nic }}: {{ network_conflicts.stdout_lines | join(', ') }}"
+    msg: >-
+      Remove or rename these netplan files, they also configure {{ host_nic }}
+      or hand it to NetworkManager: {{ network_conflicts.stdout_lines | join(', ') }}
   when: network_conflicts.stdout_lines | length > 0
 
 # netplan is never applied here: a bad bridge config would cut the host off.
