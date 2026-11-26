@@ -1,0 +1,136 @@
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: trivy-alerts
+  namespace: monitoring
+  labels:
+    release: kube-prometheus-stack
+spec:
+  groups:
+    - name: trivy-findings.rules
+      rules:
+        # Trivy reports only fixable vulnerabilities (ignoreUnfixed), so every
+        # count here has a fixed version available. Reports expire after 24h
+        # and are rebuilt one scan at a time, so the finding alerts keep
+        # firing through that gap instead of resolving and firing again.
+        - alert: OwnImageVulnerability
+          expr: |
+            label_replace(
+              max by (namespace, image_registry, image_repository) (
+                trivy_image_vulnerabilities{image_registry="ghcr.io", image_repository=~"rumstead/.+", severity=~"Critical|High"}
+              ) > 0,
+              "resource", "$1", "image_repository", "(.*)"
+            )
+          keep_firing_for: 6h
+          labels:
+            severity: warning
+            alert_class: vulnerability
+          annotations:
+            summary: "{{ $labels.image_repository }} has {{ $value }} fixable critical or high vulnerabilities"
+            description: >-
+              Rebuild the image on an updated base image or bump the affected dependencies.
+            runbook: |
+              1. kubectl -n {{ $labels.namespace }} get vulnerabilityreports -o wide
+
+        # Third-party images change only when upstream ships, so they get one
+        # weekly digest instead of an email per image.
+        - alert: ThirdPartyImagesCritical
+          expr: |
+            count(
+              max by (image_registry, image_repository, image_tag) (
+                trivy_image_vulnerabilities{severity="Critical", image_repository!~"rumstead/.+"}
+              ) > 0
+            ) > 0
+          keep_firing_for: 6h
+          labels:
+            severity: warning
+            alert_class: vulnerability
+          annotations:
+            summary: "{{ $value }} third-party images have fixable critical vulnerabilities"
+            description: >-
+              {{ range query "max by (image_registry, image_repository, image_tag) (trivy_image_vulnerabilities{severity=\"Critical\", image_repository!~\"rumstead/.+\"}) > 0" }}{{ .Labels.image_registry }}/{{ .Labels.image_repository }}:{{ .Labels.image_tag }} ({{ .Value }}) {{ end }}
+              These clear when the upstream project ships a fixed image and Renovate bumps it.
+
+        - alert: OwnWorkloadConfigFinding
+          expr: |
+            label_replace(
+              sum by (namespace, resource_kind, resource_name) (
+                trivy_resource_configaudits{namespace=~"golf-etl|lifting-data", severity=~"Critical|High"}
+              ) > 0,
+              "resource", "$1", "resource_name", "(.*)"
+            )
+          for: 15m
+          keep_firing_for: 6h
+          labels:
+            severity: warning
+            alert_class: vulnerability
+          annotations:
+            summary: "{{ $labels.resource_kind }} {{ $labels.namespace }}/{{ $labels.resource_name }} has {{ $value }} critical or high configuration findings"
+            description: >-
+              Trivy's config audit flagged the workload's manifest.
+            runbook: |
+              1. kubectl -n {{ $labels.namespace }} get configauditreports -o wide
+
+        - alert: ImageSecretFound
+          expr: |
+            label_replace(
+              max by (namespace, image_registry, image_repository) (trivy_image_exposedsecrets) > 0,
+              "resource", "$1", "image_repository", "(.*)"
+            )
+          keep_firing_for: 6h
+          labels:
+            severity: warning
+            alert_class: vulnerability
+          annotations:
+            summary: "Trivy found {{ $value }} secrets baked into {{ $labels.image_repository }}"
+            description: >-
+              A credential or key is inside the image. Rotate it and rebuild the image without it.
+            runbook: |
+              1. kubectl -n {{ $labels.namespace }} get exposedsecretreports -o wide
+
+    - name: trivy-health.rules
+      rules:
+        - alert: TrivyOperatorDown
+          expr: |
+            up{namespace="trivy-system", job="trivy-operator"} == 0
+            or
+            absent(up{namespace="trivy-system", job="trivy-operator"})
+          for: 15m
+          labels:
+            severity: warning
+            alert_class: host
+            scanner: trivy-operator
+          annotations:
+            summary: "Trivy Operator is not being scraped"
+            description: >-
+              Cluster image scanning results are not reaching Prometheus.
+
+        # A failed scan job is deleted and leaves no report, so coverage is
+        # checked directly: running workloads with no Trivy results. Images
+        # run only by CronJobs are not scanned in rootfs mode and are not
+        # counted here.
+        - alert: TrivyCoverageGap
+          expr: |
+            count by (namespace, owner_kind, owner_name) (
+              kube_pod_owner{owner_kind=~"ReplicaSet|DaemonSet|StatefulSet"}
+                * on (namespace, pod) group_left () (kube_pod_status_phase{phase="Running"} == 1)
+            )
+            unless on (namespace, owner_kind, owner_name)
+            label_replace(
+              label_replace(
+                count by (namespace, resource_kind, resource_name) (trivy_image_vulnerabilities),
+                "owner_kind", "$1", "resource_kind", "(.*)"
+              ),
+              "owner_name", "$1", "resource_name", "(.*)"
+            )
+          for: 6h
+          labels:
+            severity: warning
+            alert_class: host
+            scanner: trivy-operator
+          annotations:
+            summary: "{{ $labels.owner_kind }} {{ $labels.namespace }}/{{ $labels.owner_name }} has no Trivy results"
+            description: >-
+              Its scan job is failing or has not run, so the workload looks clean on the dashboard.
+            runbook: |
+              1. kubectl -n trivy-system logs deploy/trivy-operator --since=6h | grep -i {{ $labels.owner_name }}

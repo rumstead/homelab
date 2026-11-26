@@ -35,12 +35,17 @@ spec:
             scanJobAutomountServiceAccountToken: false
             # Rootfs scans read the image as the job's own container, so
             # kubelet pulls it and the job needs no registry access. Reading
-            # every file needs root.
+            # every file needs root, and DAC_OVERRIDE lets it read files and
+            # directories owned by an image's non-root user (distroless
+            # images). The namespace enforces Pod Security baseline, which
+            # allows DAC_OVERRIDE but not DAC_READ_SEARCH.
             scanJobPodTemplateContainerSecurityContext:
               allowPrivilegeEscalation: false
               capabilities:
                 drop:
                   - ALL
+                add:
+                  - DAC_OVERRIDE
               privileged: false
               readOnlyRootFilesystem: true
               runAsUser: 0
@@ -48,7 +53,9 @@ spec:
             # rootfs, not filesystem: filesystem mode turns off the analyzers
             # for Go binaries and installed language packages.
             command: rootfs
-            ignoreUnfixed: false
+            # Only vulnerabilities with a fixed version are reported, so every
+            # count in the metrics is something an update can fix.
+            ignoreUnfixed: true
             storageSize: "2Gi"
             resources:
               requests:
