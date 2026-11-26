@@ -19,7 +19,7 @@ Keep this managed block so 'openspec update' can refresh the instructions.
 
 # Agent Operating Reference
 
-Last updated: 2026-11-09
+Last updated: 2026-11-26
 
 Use this file as the operational context for repository changes.
 
@@ -31,11 +31,12 @@ Use this file as the operational context for repository changes.
 
 ## Environment baseline
 
-- Host: ACEMAGICIAN Kron Mini K1 Mini PC
-- CPU: AMD Ryzen 7 5825U (8C/16T)
+- Host: Lenovo ThinkCentre M70q Gen 3 Tiny (hostname `crete`)
+- CPU: Intel Core i7-12700T (12C/20T)
 - Memory: 32GB DDR4
-- Storage: 512GB SSD
-- Host OS: Ubuntu
+- Storage: 512GB NVMe SSD
+- NIC: Intel I219-LM (`eno2`)
+- Host OS: Ubuntu Server 26.04 (`sudo` is sudo-rs)
 
 ### Cluster topology
 
