@@ -61,8 +61,8 @@ Run every playbook from the repo root (`ansible.cfg` lives there). Each role is 
 
 ### Versions
 
-- Talos: `v1.14.2`
-- Kubernetes: `1.36.5`
+- Talos: `v1.14.7`
+- Kubernetes: `1.36.7`
 
 ### Network and node identity
 
