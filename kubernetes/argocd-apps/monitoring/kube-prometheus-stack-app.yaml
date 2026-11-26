@@ -81,7 +81,7 @@ spec:
               # Scrape interval
               scrapeInterval: 30s
               # Retention
-              retention: 7d
+              retention: 15d
               retentionSize: "9GB"
               # WAL compression reduces WAL size and speeds recovery after unclean shutdown
               walCompression: true

@@ -44,10 +44,10 @@
 - [ ] 6.7 USB backup, add the HaGeZi Threat Intelligence Feeds list, confirm it blocks a test domain and that browsing and `apt update` on crete still work, USB backup again, and write the one-toggle undo into the README
 
 ## 7. Weekly health dashboard and reminder
-- [ ] 7.1 Raise Prometheus retention to 15 days (keep the 9GB cap) and confirm disk use after two weeks
-- [ ] 7.2 Add the "Homelab weekly" dashboard ConfigMap with this-week and last-week panels for crete, the cluster, security and the watchers
+- [x] 7.1 Raise Prometheus retention to 15 days (keep the 9GB cap) and confirm disk use after two weeks
+- [x] 7.2 Add the "Homelab weekly" dashboard ConfigMap with this-week and last-week panels for crete, the cluster, security and the watchers
 - [ ] 7.3 Create a separate Gmail app password and store it as a SOPS-encrypted Secret in `monitoring`
-- [ ] 7.4 Add the reminder CronJob and its script ConfigMap, and its spec in the `monitoring` egress policy (Prometheus and `smtp.gmail.com:587` only); confirm it mounts only its own Secret
+- [x] 7.4 Add the reminder CronJob and its script ConfigMap, and its spec in the `monitoring` egress policy (Prometheus and `smtp.gmail.com:587` only); confirm it mounts only its own Secret
 - [ ] 7.5 Run it once by hand: the email arrives with every headline figure (or marked incomplete), Alertmanager's delivery status and scrape health, and a working dashboard link from the phone
 
 ## 8. Wrap up
