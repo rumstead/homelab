@@ -1,3 +1,4 @@
+# Root filesystems are read-only; ingest writes the data and output volumes plus an emptyDir /tmp.
 # Gmail credentials come from lifting-data-gmail.sops.yaml (edit with `sops`).
 apiVersion: batch/v1
 kind: CronJob
@@ -21,6 +22,8 @@ spec:
             - name: init-perms
               image: busybox:1.38.0
               command: ["sh", "-c", "chmod 777 /app/data /app/output"]
+              securityContext:
+                readOnlyRootFilesystem: true
               volumeMounts:
                 - name: data
                   mountPath: /app/data
@@ -31,6 +34,8 @@ spec:
               image: ghcr.io/rumstead/lifting-data:latest
               imagePullPolicy: Always
               command: ["/bin/sh", "/scripts/ingest-and-plot.sh"]
+              securityContext:
+                readOnlyRootFilesystem: true
               env:
                 # Dates in Hevy exports are local; "today" for the dashboard must be too.
                 - name: TZ
@@ -50,6 +55,8 @@ spec:
                   mountPath: /app/data
                 - name: output
                   mountPath: /app/output
+                - name: tmp
+                  mountPath: /tmp
                 - name: scripts
                   mountPath: /scripts
                 - name: progression
@@ -69,6 +76,9 @@ spec:
             - name: output
               persistentVolumeClaim:
                 claimName: lifting-data-output
+            - name: tmp
+              emptyDir:
+                sizeLimit: 256Mi
             - name: scripts
               configMap:
                 name: lifting-data-scripts

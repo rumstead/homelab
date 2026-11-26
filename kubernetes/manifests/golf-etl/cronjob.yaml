@@ -2,6 +2,7 @@
 # to rumstead/golf-sessions with the deploy key from golf-etl-deploy-key.sops.yaml (edit with `sops`).
 # The pod is pinned to the node that holds the RWO volume, next to the upload pod.
 # Forbid plus no in-place restarts lets the app treat anything left in processing/ as orphaned.
+# The root filesystem is read-only; /tmp (the app's HOME: matplotlib, ssh and git state) and /scratch are emptyDirs.
 # The Drive token in golf-etl-rclone.sops.yaml stays mounted so setting GOLF_STORAGE=drive in the ConfigMap rolls back.
 apiVersion: batch/v1
 kind: CronJob
@@ -35,6 +36,7 @@ spec:
               args: ["poll"]
               securityContext:
                 allowPrivilegeEscalation: false
+                readOnlyRootFilesystem: true
                 capabilities:
                   drop: ["ALL"]
               envFrom:
@@ -52,6 +54,8 @@ spec:
               volumeMounts:
                 - name: scratch
                   mountPath: /scratch
+                - name: tmp
+                  mountPath: /tmp
                 - name: data
                   mountPath: /data
                 - name: deploy-key
@@ -61,6 +65,9 @@ spec:
             - name: scratch
               emptyDir:
                 sizeLimit: 10Gi
+            - name: tmp
+              emptyDir:
+                sizeLimit: 1Gi
             - name: data
               persistentVolumeClaim:
                 claimName: golf-etl-data

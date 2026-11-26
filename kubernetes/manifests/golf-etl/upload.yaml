@@ -1,5 +1,6 @@
 # nginx fronts tusd (/files/) and upload-server (everything else); tusd calls upload-server's hooks over loopback.
 # Tailscale terminates TLS, so nginx only sees plain HTTP on 8080.
+# Root filesystems are read-only; nginx writes /var/cache/nginx and /run, upload-server writes /tmp (its HOME).
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -32,6 +33,7 @@ spec:
           command: ["mkdir", "-p", "/data/uploads", "/data/inbox", "/data/processing", "/data/failed", "/data/.golf-etl"]
           securityContext:
             allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
             capabilities:
               drop: ["ALL"]
           resources:
@@ -46,12 +48,13 @@ spec:
               mountPath: /data
       containers:
         - name: nginx
-          image: nginxinc/nginx-unprivileged:1.31.7-alpine
+          image: nginx:1.31.10-alpine
           ports:
             - name: http
               containerPort: 8080
           securityContext:
             allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
             capabilities:
               drop: ["ALL"]
           resources:
@@ -64,6 +67,10 @@ spec:
           volumeMounts:
             - name: nginx-config
               mountPath: /etc/nginx/conf.d
+            - name: nginx-cache
+              mountPath: /var/cache/nginx
+            - name: nginx-run
+              mountPath: /run
         - name: tusd
           image: tusproject/tusd:v2.10.3
           args:
@@ -78,6 +85,7 @@ spec:
             - -hooks-http-backoff=2s
           securityContext:
             allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
             capabilities:
               drop: ["ALL"]
           resources:
@@ -101,6 +109,7 @@ spec:
               value: /data/uploads
           securityContext:
             allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
             capabilities:
               drop: ["ALL"]
           resources:
@@ -113,6 +122,8 @@ spec:
           volumeMounts:
             - name: data
               mountPath: /data
+            - name: tmp
+              mountPath: /tmp
       volumes:
         - name: data
           persistentVolumeClaim:
@@ -120,6 +131,13 @@ spec:
         - name: nginx-config
           configMap:
             name: golf-etl-upload-nginx
+        - name: nginx-cache
+          emptyDir: {}
+        - name: nginx-run
+          emptyDir: {}
+        - name: tmp
+          emptyDir:
+            sizeLimit: 1Gi
 ---
 apiVersion: v1
 kind: Service
