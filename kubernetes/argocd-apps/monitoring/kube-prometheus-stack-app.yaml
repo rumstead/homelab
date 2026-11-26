@@ -24,6 +24,15 @@ spec:
               passwordKey: admin-password
             service:
               type: ClusterIP
+            # No usage reports, update checks or Gravatar lookups, so Grafana
+            # needs no internet egress.
+            grafana.ini:
+              analytics:
+                reporting_enabled: false
+                check_for_updates: false
+                check_for_plugin_updates: false
+              security:
+                disable_gravatar: true
             # Security context for Talos compatibility
             securityContext:
               runAsNonRoot: true
@@ -108,6 +117,9 @@ spec:
               # SOPS secret kubernetes/manifests/monitoring/sops/alertmanager-config.sops.yaml
               useExistingSecret: true
               configSecret: alertmanager-config
+              # Longer than the 7d repeat interval for vulnerability alerts, so
+              # the notification log still knows an alert was sent.
+              retention: 192h
               storage:
                 disableMountSubPath: true
                 volumeClaimTemplate:

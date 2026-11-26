@@ -20,6 +20,16 @@
     mode: "0644"
   notify: Restart process_exporter
 
+# Host scanners write their metrics here as *.prom files; node_exporter runs
+# as nobody, so the directory and files stay world-readable.
+- name: Create the node_exporter textfile directory
+  ansible.builtin.file:
+    path: /var/lib/node_exporter/textfile
+    state: directory
+    owner: root
+    group: root
+    mode: "0755"
+
 - name: Install the exporter services
   ansible.builtin.copy:
     src: "{{ item }}.service"
