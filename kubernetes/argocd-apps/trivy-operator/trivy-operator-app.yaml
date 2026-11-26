@@ -33,7 +33,7 @@ spec:
             metricsVulnIdEnabled: true
           trivyOperator:
             scanJobAutomountServiceAccountToken: false
-            # Filesystem scans read the image as the job's own container, so
+            # Rootfs scans read the image as the job's own container, so
             # kubelet pulls it and the job needs no registry access. Reading
             # every file needs root.
             scanJobPodTemplateContainerSecurityContext:
@@ -45,7 +45,9 @@ spec:
               readOnlyRootFilesystem: true
               runAsUser: 0
           trivy:
-            command: filesystem
+            # rootfs, not filesystem: filesystem mode turns off the analyzers
+            # for Go binaries and installed language packages.
+            command: rootfs
             ignoreUnfixed: false
             storageSize: "2Gi"
             resources:
