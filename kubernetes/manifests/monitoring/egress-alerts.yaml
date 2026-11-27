@@ -11,15 +11,17 @@ spec:
       rules:
         # A counter that appears with its first event has no increase(), so
         # each rule also fires on a positive series that did not exist 10
-        # minutes ago. Trivy scan jobs' version checks to check.trivy.dev are
+        # minutes ago. Both sides are summed over the alert's own labels, so
+        # renamed series after a Cilium agent restart do not look new. Trivy scan jobs' version checks to check.trivy.dev are
         # blocked on purpose and never alert.
         - alert: EgressWouldBeDropped
           expr: |
-            sum by (source_namespace, source, destination, port) (
-              increase(hubble_flows_to_world_total{verdict="AUDIT", destination!="check.trivy.dev"}[10m]) > 0
-              or
-              (hubble_flows_to_world_total{verdict="AUDIT", destination!="check.trivy.dev"} > 0
-                unless hubble_flows_to_world_total{verdict="AUDIT"} offset 10m)
+            (sum by (source_namespace, source, destination, port) (increase(hubble_flows_to_world_total{verdict="AUDIT", destination!="check.trivy.dev"}[10m])) > 0)
+            or
+            (
+              sum by (source_namespace, source, destination, port) (hubble_flows_to_world_total{verdict="AUDIT", destination!="check.trivy.dev"}) > 0
+              unless on (source_namespace, source, destination, port)
+              sum by (source_namespace, source, destination, port) (hubble_flows_to_world_total{verdict="AUDIT"} offset 10m)
             )
           labels:
             severity: warning
@@ -35,11 +37,12 @@ spec:
 
         - alert: EgressDropped
           expr: |
-            sum by (source_namespace, source, destination, port) (
-              increase(hubble_flows_to_world_total{verdict="DROPPED", destination!="check.trivy.dev"}[10m]) > 0
-              or
-              (hubble_flows_to_world_total{verdict="DROPPED", destination!="check.trivy.dev"} > 0
-                unless hubble_flows_to_world_total{verdict="DROPPED"} offset 10m)
+            (sum by (source_namespace, source, destination, port) (increase(hubble_flows_to_world_total{verdict="DROPPED", destination!="check.trivy.dev"}[10m])) > 0)
+            or
+            (
+              sum by (source_namespace, source, destination, port) (hubble_flows_to_world_total{verdict="DROPPED", destination!="check.trivy.dev"}) > 0
+              unless on (source_namespace, source, destination, port)
+              sum by (source_namespace, source, destination, port) (hubble_flows_to_world_total{verdict="DROPPED"} offset 10m)
             )
           labels:
             severity: warning
@@ -58,11 +61,12 @@ spec:
         # NetworkPolicies), so the direction is not known from the metric.
         - alert: ClusterConnectionDenied
           expr: |
-            sum by (source_namespace, source, destination_namespace, destination) (
-              increase(hubble_drop_total{reason="POLICY_DENIED", destination!~"reserved:world"}[10m]) > 0
-              or
-              (hubble_drop_total{reason="POLICY_DENIED", destination!~"reserved:world"} > 0
-                unless hubble_drop_total{reason="POLICY_DENIED"} offset 10m)
+            (sum by (source_namespace, source, destination) (increase(hubble_drop_total{reason="POLICY_DENIED", destination!~"reserved:world"}[10m])) > 0)
+            or
+            (
+              sum by (source_namespace, source, destination) (hubble_drop_total{reason="POLICY_DENIED", destination!~"reserved:world"}) > 0
+              unless on (source_namespace, source, destination)
+              sum by (source_namespace, source, destination) (hubble_drop_total{reason="POLICY_DENIED"} offset 10m)
             )
           labels:
             severity: warning
