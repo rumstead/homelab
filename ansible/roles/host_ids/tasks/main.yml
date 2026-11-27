@@ -92,6 +92,17 @@
       {% endfor %}
   notify: Reload Suricata rules
 
+# suricata-update reads this file by default. Modbus and DNP3 parsing is off in
+# host-ids.yaml, and validation rejects a rule set with rules for a disabled protocol.
+- name: Disable rules for protocols Suricata does not parse
+  ansible.builtin.copy:
+    dest: /etc/suricata/disable.conf
+    owner: root
+    group: root
+    mode: "0644"
+    content: |
+      re:^alert (modbus|dnp3)\s
+
 # The first rule set, so the configuration below has rules to validate against.
 - name: Fetch the first Emerging Threats Open rule set
   ansible.builtin.command: /usr/bin/suricata-update --no-test --no-reload
