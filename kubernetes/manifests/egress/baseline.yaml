@@ -34,3 +34,12 @@ spec:
           rules:
             dns:
               - matchPattern: "*"
+    # A DNS answer that arrives after the client stopped waiting gets an ICMP
+    # port unreachable back. ICMP to a service address is not translated, so
+    # it is addressed to the kube-dns ClusterIP itself.
+    - toCIDR:
+        - 10.96.0.10/32
+      icmps:
+        - fields:
+            - type: DestinationUnreachable
+              family: IPv4
