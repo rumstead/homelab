@@ -1,0 +1,14 @@
+apiVersion: cilium.io/v2
+kind: CiliumNetworkPolicy
+metadata:
+  name: egress
+  namespace: cert-manager
+specs:
+  # The issuers are a self-signed CA, so cert-manager only needs the API.
+  - endpointSelector: {}
+    enableDefaultDeny:
+      egress: false
+      ingress: false
+    egress:
+      - toEntities:
+          - kube-apiserver

@@ -1,0 +1,56 @@
+apiVersion: cilium.io/v2
+kind: CiliumNetworkPolicy
+metadata:
+  name: egress
+  namespace: trivy-system
+specs:
+  - endpointSelector:
+      matchLabels:
+        app.kubernetes.io/name: trivy-operator
+    enableDefaultDeny:
+      egress: false
+      ingress: false
+    egress:
+      - toEntities:
+          - kube-apiserver
+      - toEndpoints:
+          - matchLabels:
+              app.kubernetes.io/name: trivy-server
+        toPorts:
+          - ports:
+              - port: "4954"
+                protocol: TCP
+  # Only the server downloads the vulnerability database.
+  - endpointSelector:
+      matchLabels:
+        app.kubernetes.io/name: trivy-server
+    enableDefaultDeny:
+      egress: false
+      ingress: false
+    egress:
+      - toFQDNs:
+          - matchName: mirror.gcr.io
+        toPorts:
+          - ports:
+              - port: "443"
+                protocol: TCP
+  # Scan jobs (every other pod) only query the server. Their attempts to
+  # reach check.trivy.dev (version check and telemetry) stay blocked.
+  - endpointSelector:
+      matchExpressions:
+        - key: app.kubernetes.io/name
+          operator: NotIn
+          values:
+            - trivy-operator
+            - trivy-server
+    enableDefaultDeny:
+      egress: false
+      ingress: false
+    egress:
+      - toEndpoints:
+          - matchLabels:
+              app.kubernetes.io/name: trivy-server
+        toPorts:
+          - ports:
+              - port: "4954"
+                protocol: TCP

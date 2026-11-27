@@ -1,0 +1,27 @@
+apiVersion: cilium.io/v2
+kind: CiliumNetworkPolicy
+metadata:
+  name: egress
+  namespace: golf-etl
+specs:
+  # The poll CronJob's pods (everything but the upload pod) push sessions to
+  # rumstead/golf-sessions over SSH. The upload pod needs only DNS.
+  - endpointSelector:
+      matchExpressions:
+        - key: app
+          operator: NotIn
+          values:
+            - golf-etl-upload
+    enableDefaultDeny:
+      egress: false
+      ingress: false
+    egress:
+      - toFQDNs:
+          - matchName: github.com
+          - matchName: api.github.com
+        toPorts:
+          - ports:
+              - port: "22"
+                protocol: TCP
+              - port: "443"
+                protocol: TCP
