@@ -1,0 +1,212 @@
+#!/usr/bin/env python3
+"""Records the domains crete contacted for the first time, per day.
+
+Names come from EVE DNS queries, TLS SNI and QUIC SNI whose source address is
+one of crete's own (IPv4 and IPv6 as currently assigned to the bridge), so
+traffic from the VMs never counts. They are lowercased, converted to ASCII,
+and reduced to registrable domains with the Public Suffix List.
+
+For each completed day not yet processed, oldest first, the names not in the
+baseline are written to new-YYYY-MM-DD.txt in the baseline directory, then
+added to the baseline. Dated files are kept 90 days. The newest completed
+day's count is exported; the names themselves never leave the host.
+
+A day is complete when EVE holds data from an earlier day (so the day was not
+cut by rotation) and holds at least one event from that day (Suricata's stats
+records appear every 30 seconds while it runs). Other days are processed with
+what exists and recorded as incomplete.
+
+Observed names are not proof of connections. Encrypted DNS, ECH and
+connections to a bare IP produce no name.
+"""
+import json
+import os
+import subprocess
+import sys
+from datetime import date, datetime, timedelta
+
+sys.path.insert(0, "/usr/local/lib/host-scanning")
+sys.path.insert(0, os.environ.get("HOST_IDS_LIB", "/usr/local/lib/host-ids"))
+from host_ids_common import EVE_PATH, load_config, open_eve, rotated_eve_files  # noqa: E402
+from textfile_metrics import Metrics, _atomic_write, run_scanner  # noqa: E402
+
+SCANNER = "host_ids_names"
+BASELINE_DIR = os.environ.get("HOST_IDS_BASELINE_DIR", "/var/lib/egress-baseline")
+PSL_PATH = os.environ.get("HOST_IDS_PSL", "/usr/share/publicsuffix/public_suffix_list.dat")
+KEEP_DAYS = 90
+# On the first run, how far back to look for data.
+MAX_CATCH_UP_DAYS = 30
+SKIPPED_SUFFIXES = (".arpa", ".local", ".localhost", ".internal", ".lan", ".home", ".home.arpa")
+
+
+def load_psl(path):
+    """Returns (rules, exceptions): sets of ASCII suffixes; wildcards keep their leading '*.'."""
+    rules, exceptions = set(), set()
+    with open(path, encoding="utf-8") as handle:
+        for line in handle:
+            line = line.split()[0] if line.strip() and not line.startswith("//") else ""
+            if not line:
+                continue
+            target = rules
+            if line.startswith("!"):
+                target, line = exceptions, line[1:]
+            target.add(to_ascii(line))
+    return rules, exceptions
+
+
+def to_ascii(name):
+    return name.encode("idna").decode("ascii") if not name.isascii() else name
+
+
+def normalize(name):
+    """Lowercase ASCII name without a trailing dot, or None when it is not a usable hostname."""
+    name = name.strip().lower().rstrip(".")
+    if not name or "." not in name or len(name) > 253:
+        return None
+    try:
+        name = to_ascii(name)
+    except UnicodeError:
+        return None
+    labels = name.split(".")
+    if any(not label or len(label) > 63 for label in labels):
+        return None
+    if all(label.isdigit() for label in labels) or ":" in name or name.endswith(SKIPPED_SUFFIXES):
+        return None
+    return name
+
+
+def registrable_domain(name, rules, exceptions):
+    """The public suffix plus one label, by the Public Suffix List algorithm."""
+    labels = name.split(".")
+    suffix_len = 1
+    for i in range(len(labels)):
+        candidate = ".".join(labels[i:])
+        if candidate in exceptions:
+            suffix_len = len(labels) - i - 1
+            break
+        wildcard = ".".join(["*"] + labels[i + 1 :])
+        if candidate in rules or (i + 1 < len(labels) and wildcard in rules):
+            suffix_len = max(suffix_len, len(labels) - i)
+    if suffix_len >= len(labels):
+        return name
+    return ".".join(labels[-(suffix_len + 1) :])
+
+
+def own_addresses():
+    override = os.environ.get("HOST_IDS_ADDRS")
+    if override is not None:
+        return {a for a in override.split(",") if a}
+    bridge = load_config()["bridge"]
+    out = subprocess.run(["ip", "-j", "addr", "show", "dev", bridge], capture_output=True, text=True, check=True).stdout
+    return {
+        addr["local"]
+        for link in json.loads(out)
+        for addr in link.get("addr_info", [])
+        if addr.get("scope") == "global"
+    }
+
+
+def event_name(event):
+    kind = event.get("event_type")
+    if kind == "dns" and event.get("dns", {}).get("type") == "query":
+        return event["dns"].get("rrname")
+    if kind == "tls":
+        return event.get("tls", {}).get("sni")
+    if kind == "quic":
+        return event.get("quic", {}).get("sni")
+    return None
+
+
+def scan_eve(addresses, rules, exceptions):
+    """Returns (names per day, days with any event, first day with data)."""
+    names, active, first = {}, set(), None
+    for path in rotated_eve_files() + [EVE_PATH]:
+        if not os.path.exists(path):
+            continue
+        with open_eve(path) as handle:
+            for line in handle:
+                try:
+                    event = json.loads(line)
+                    day = event["timestamp"][:10]
+                except (ValueError, KeyError, TypeError):
+                    continue
+                active.add(day)
+                if first is None or day < first:
+                    first = day
+                if event.get("src_ip") not in addresses:
+                    continue
+                raw = event_name(event)
+                name = normalize(raw) if raw else None
+                if name:
+                    names.setdefault(day, set()).add(registrable_domain(name, rules, exceptions))
+    return names, active, first
+
+
+def read_lines(path):
+    try:
+        with open(path) as handle:
+            return {line.strip() for line in handle if line.strip()}
+    except FileNotFoundError:
+        return set()
+
+
+def write_lines(path, lines):
+    _atomic_write(path, "".join(f"{line}\n" for line in sorted(lines)), mode=0o600)
+
+
+def collect(metrics: Metrics, state):
+    rules, exceptions = load_psl(PSL_PATH)
+    addresses = own_addresses()
+    if not addresses:
+        raise RuntimeError("No global addresses found on the bridge")
+    os.makedirs(BASELINE_DIR, mode=0o700, exist_ok=True)
+    baseline_path = os.path.join(BASELINE_DIR, "domains.txt")
+    baseline = read_lines(baseline_path)
+
+    names, active, first = scan_eve(addresses, rules, exceptions)
+    today = date.today()
+    days = state.setdefault("days", {})
+    start = date.fromisoformat(max(days)) + timedelta(days=1) if days else today - timedelta(days=MAX_CATCH_UP_DAYS)
+    day = max(start, date.fromisoformat(first)) if first else today
+    while day < today:
+        key = day.isoformat()
+        complete = first is not None and first < key and key in active
+        day_file = os.path.join(BASELINE_DIR, f"new-{key}.txt")
+        seen = names.get(key, set())
+        # An existing dated file means an earlier run died after writing it.
+        new = read_lines(day_file) if os.path.exists(day_file) else seen - baseline
+        if not os.path.exists(day_file):
+            write_lines(day_file, new)
+        baseline |= seen
+        write_lines(baseline_path, baseline)
+        days[key] = {"complete": complete, "new": len(new)}
+        day += timedelta(days=1)
+
+    cutoff = (today - timedelta(days=KEEP_DAYS)).isoformat()
+    for key in [k for k in days if k < cutoff]:
+        del days[key]
+    for entry in os.listdir(BASELINE_DIR):
+        if entry.startswith("new-") and entry[4:14] < cutoff:
+            os.unlink(os.path.join(BASELINE_DIR, entry))
+
+    metrics.add("host_ids_names_baseline_domains", len(baseline), "Registrable domains in the baseline")
+    metrics.add(
+        "host_ids_names_incomplete_days",
+        sum(1 for d in days.values() if not d["complete"]),
+        "Days in the last 90 whose EVE data was incomplete",
+    )
+    if days:
+        latest = max(days)
+        metrics.add("host_ids_names_new_domains", days[latest]["new"], "New registrable domains on the newest processed day")
+        metrics.add(
+            "host_ids_names_day_complete", int(days[latest]["complete"]), "1 if the newest processed day had complete EVE data"
+        )
+        metrics.add(
+            "host_ids_names_day_timestamp_seconds",
+            int(datetime.combine(date.fromisoformat(latest), datetime.min.time()).timestamp()),
+            "Start of the newest processed day",
+        )
+
+
+if __name__ == "__main__":
+    sys.exit(run_scanner(SCANNER, collect))

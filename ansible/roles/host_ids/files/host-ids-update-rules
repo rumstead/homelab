@@ -1,0 +1,110 @@
+#!/usr/bin/env python3
+"""Updates Suricata's Emerging Threats Open rules, keeping the last good set.
+
+1. suricata-update writes the new set to a staging directory
+2. `suricata -T` validates it; a failure leaves the installed set untouched
+3. the set is installed (the previous one is kept as suricata.rules.last-good)
+   and the engine reloads it
+4. Suricata's own stats must then report at least the expected number of
+   loaded rules, newer than the reload; otherwise the last good set is
+   restored and reloaded and the run fails
+"""
+import hashlib
+import os
+import shutil
+import subprocess
+import sys
+import tempfile
+import time
+
+sys.path.insert(0, "/usr/local/lib/host-scanning")
+sys.path.insert(0, os.environ.get("HOST_IDS_LIB", "/usr/local/lib/host-ids"))
+from host_ids_common import last_stats_event, load_config, parse_time, stats_values  # noqa: E402
+from textfile_metrics import Metrics, run_scanner  # noqa: E402
+
+SCANNER = "host_ids_rules"
+SURICATA = os.environ.get("HOST_IDS_SURICATA", "/usr/bin/suricata")
+SURICATASC = os.environ.get("HOST_IDS_SURICATASC", "/usr/bin/suricatasc")
+SURICATA_UPDATE = os.environ.get("HOST_IDS_SURICATA_UPDATE", "/usr/bin/suricata-update")
+RULES_DIR = os.environ.get("HOST_IDS_RULES_DIR", "/var/lib/suricata/rules")
+WORK_DIR = os.environ.get("HOST_IDS_WORK_DIR", "/var/lib/host-ids")
+SURICATA_CONF = os.environ.get("HOST_IDS_SURICATA_CONF", "/etc/suricata/host-ids.yaml")
+# Seconds to wait for a stats record that shows the reloaded rules.
+RELOAD_WAIT = int(os.environ.get("HOST_IDS_RELOAD_WAIT", "150"))
+
+
+def run(cmd, timeout=900):
+    return subprocess.run(cmd, capture_output=True, text=True, timeout=timeout, check=True)
+
+
+def count_rules(path):
+    with open(path, errors="replace") as handle:
+        return sum(1 for line in handle if line.strip() and not line.startswith("#"))
+
+
+def digest(path):
+    with open(path, "rb") as handle:
+        return hashlib.sha256(handle.read()).hexdigest()
+
+
+def reload_rules():
+    run([SURICATASC, "-c", "reload-rules"], timeout=300)
+
+
+def wait_for_rules(expected, since, config):
+    """Waits for a stats record after `since` that shows enough loaded rules."""
+    deadline = time.time() + RELOAD_WAIT
+    loaded = None
+    while time.time() < deadline:
+        event = last_stats_event()
+        if event:
+            values = stats_values(event)
+            if parse_time(values["timestamp"]) >= since and values["rules_loaded"] is not None:
+                loaded = values["rules_loaded"]
+                if loaded >= expected * config["loaded_tolerance"]:
+                    return loaded
+        time.sleep(5)
+    raise RuntimeError(f"Suricata reports {loaded} loaded rules, expected about {expected}")
+
+
+def collect(metrics: Metrics, state):
+    config = load_config()
+    staging = os.path.join(WORK_DIR, "staging")
+    shutil.rmtree(staging, ignore_errors=True)
+    os.makedirs(staging, mode=0o700)
+    run([SURICATA_UPDATE, "--no-test", "--no-reload", "--suricata-conf", SURICATA_CONF, "-o", staging])
+    new_rules = os.path.join(staging, "suricata.rules")
+    expected = count_rules(new_rules)
+    if expected < config["min_rules"]:
+        raise RuntimeError(f"The new rule set has {expected} rules, fewer than {config['min_rules']}")
+    with tempfile.TemporaryDirectory(dir=WORK_DIR) as log_dir:
+        run([SURICATA, "-T", "-c", SURICATA_CONF, "-S", new_rules, "-l", log_dir])
+
+    installed = os.path.join(RULES_DIR, "suricata.rules")
+    good = f"{installed}.last-good"
+    changed = not os.path.exists(installed) or digest(installed) != digest(new_rules)
+    if changed:
+        if os.path.exists(installed):
+            shutil.copy2(installed, good)
+        shutil.copy2(new_rules, f"{installed}.new")
+        os.replace(f"{installed}.new", installed)
+        started = int(time.time())
+        try:
+            reload_rules()
+            loaded = wait_for_rules(expected, started, config)
+        except Exception:
+            if os.path.exists(good):
+                os.replace(good, installed)
+                reload_rules()
+            raise
+    else:
+        loaded = wait_for_rules(expected, 0, config)
+    shutil.rmtree(staging, ignore_errors=True)
+
+    metrics.add("host_ids_rules_file_rules", expected, "Rules in the installed Emerging Threats set")
+    metrics.add("host_ids_rules_confirmed_loaded", loaded, "Rules Suricata reported loaded after the last update")
+    metrics.add("host_ids_rules_changed", int(changed), "1 if the last update installed a different rule set")
+
+
+if __name__ == "__main__":
+    sys.exit(run_scanner(SCANNER, collect))

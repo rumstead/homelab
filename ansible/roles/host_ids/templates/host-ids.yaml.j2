@@ -1,0 +1,170 @@
+%YAML 1.1
+---
+# Suricata in IDS mode on {{ host_ids_nic }}: it reads a copy of every frame and
+# never blocks or forwards. Managed by Ansible (role host_ids).
+
+vars:
+  address-groups:
+    HOME_NET: "[{{ host_ids_home_net | join(',') }}]"
+    EXTERNAL_NET: "!$HOME_NET"
+    HTTP_SERVERS: "$HOME_NET"
+    SMTP_SERVERS: "$HOME_NET"
+    SQL_SERVERS: "$HOME_NET"
+    DNS_SERVERS: "$HOME_NET"
+    TELNET_SERVERS: "$HOME_NET"
+    AIM_SERVERS: "$EXTERNAL_NET"
+    DC_SERVERS: "$HOME_NET"
+    DNP3_SERVER: "$HOME_NET"
+    DNP3_CLIENT: "$HOME_NET"
+    MODBUS_CLIENT: "$HOME_NET"
+    MODBUS_SERVER: "$HOME_NET"
+    ENIP_CLIENT: "$HOME_NET"
+    ENIP_SERVER: "$HOME_NET"
+  port-groups:
+    HTTP_PORTS: "80"
+    SHELLCODE_PORTS: "!80"
+    ORACLE_PORTS: 1521
+    SSH_PORTS: 22
+    DNP3_PORTS: 20000
+    MODBUS_PORTS: 502
+    FILE_DATA_PORTS: "[$HTTP_PORTS,110,143]"
+    FTP_PORTS: 21
+    GENEVE_PORTS: 6081
+    VXLAN_PORTS: 4789
+    TEREDO_PORTS: 3544
+
+default-log-dir: /var/log/suricata
+
+stats:
+  enabled: yes
+  interval: 30
+
+outputs:
+  - eve-log:
+      enabled: yes
+      filetype: regular
+      filename: eve.json
+      filemode: 600
+      types:
+        - alert:
+            payload: no
+            metadata: yes
+        - dns:
+            version: 2
+        - tls:
+            extended: no
+        - quic
+        - stats:
+            totals: yes
+            threads: no
+            deltas: no
+
+logging:
+  default-log-level: notice
+  outputs:
+    - file:
+        enabled: yes
+        level: info
+        filename: suricata.log
+
+af-packet:
+  - interface: {{ host_ids_nic }}
+    cluster-id: 99
+    cluster-type: cluster_flow
+    defrag: yes
+    use-mmap: yes
+    tpacket-v3: yes
+    threads: {{ host_ids_capture_threads }}
+    # Frames from crete's own transmit path carry checksums the NIC adds later.
+    checksum-checks: no
+
+unix-command:
+  enabled: yes
+  filename: /var/run/suricata/suricata-command.socket
+
+app-layer:
+  protocols:
+    telnet:
+      enabled: yes
+    rfb:
+      enabled: yes
+    mqtt:
+      enabled: yes
+    krb5:
+      enabled: yes
+    bittorrent-dht:
+      enabled: yes
+    snmp:
+      enabled: yes
+    ike:
+      enabled: yes
+    tls:
+      enabled: yes
+      detection-ports:
+        dp: 443
+    dcerpc:
+      enabled: yes
+    ftp:
+      enabled: yes
+    rdp:
+      enabled: yes
+    ssh:
+      enabled: yes
+    doh2:
+      enabled: yes
+    http2:
+      enabled: yes
+    smtp:
+      enabled: yes
+    imap:
+      enabled: detection-only
+    pop3:
+      enabled: yes
+    smb:
+      enabled: yes
+      detection-ports:
+        dp: 139, 445
+    nfs:
+      enabled: yes
+    tftp:
+      enabled: yes
+    dns:
+      tcp:
+        enabled: yes
+        detection-ports:
+          dp: 53
+      udp:
+        enabled: yes
+        detection-ports:
+          dp: 53
+    http:
+      enabled: yes
+    ntp:
+      enabled: yes
+    quic:
+      enabled: yes
+    dhcp:
+      enabled: yes
+    sip:
+      enabled: yes
+    ldap:
+      tcp:
+        enabled: yes
+      udp:
+        enabled: yes
+    mdns:
+      enabled: yes
+
+detect:
+  profile: medium
+  sgh-mpm-caching: yes
+  sgh-mpm-caching-path: /var/lib/suricata/cache/sgh
+
+default-rule-path: /var/lib/suricata/rules
+rule-files:
+  - suricata.rules
+  - /etc/suricata/rules/local.rules
+
+classification-file: /etc/suricata/classification.config
+reference-config-file: /etc/suricata/reference.config
+threshold-file: /etc/suricata/threshold-host-ids.config

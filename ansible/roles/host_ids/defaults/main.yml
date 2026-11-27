@@ -1,0 +1,55 @@
+---
+host_ids_textfile_dir: /var/lib/node_exporter/textfile
+host_ids_state_dir: /var/lib/host-scanning
+# The shared textfile helper from the host_scanning role lives here.
+host_ids_scanning_lib_dir: /usr/local/lib/host-scanning
+host_ids_lib_dir: /usr/local/lib/host-ids
+host_ids_work_dir: /var/lib/host-ids
+host_ids_baseline_dir: /var/lib/egress-baseline
+
+# Capture threads on the uplink; each costs memory for its own rule contexts.
+host_ids_capture_threads: 2
+host_ids_home_net:
+  - 192.168.0.0/16
+  - 10.0.0.0/8
+  - 172.16.0.0/12
+  - fc00::/7
+
+# EVE disk bound: daily rotation, or sooner at this size when logrotate runs,
+# and this many rotated files (about host_ids_log_max_size * (rotate + 1)).
+host_ids_log_max_size: 200M
+host_ids_log_rotate: 7
+
+# A rule set smaller than this is treated as a failed download.
+host_ids_min_rules: 10000
+# Fraction of the new set's rules the engine must report loaded after a reload.
+host_ids_loaded_tolerance: 0.95
+
+# Alerts email for priority 1, and for priority 2 in these categories. Review
+# the list against the counts on the Suricata dashboard.
+host_ids_email_categories:
+  - Misc Attack
+  - Potentially Bad Traffic
+# Alert signatures counted individually; later ones are counted as "other".
+host_ids_max_signatures: 200
+# Signature IDs that proved noisy. Suppressed alerts are neither logged nor counted.
+host_ids_suppressed_signatures: []
+
+# Local test rule: alerts on a request carrying this string, e.g.
+#   curl http://192.168.1.1/homelab-ids-test-7f3a9c2e
+host_ids_test_string: homelab-ids-test-7f3a9c2e
+
+# name: the script and unit name; metrics: its file in the textfile directory
+host_ids_jobs:
+  - name: host-ids-metrics
+    schedule: minutely
+    delay: 0
+    metrics: host_ids
+  - name: host-ids-update-rules
+    schedule: "*-*-* 03:30:00 UTC"
+    delay: 30m
+    metrics: host_ids_rules
+  - name: host-ids-names
+    schedule: "*-*-* 04:30:00 UTC"
+    delay: 15m
+    metrics: host_ids_names
