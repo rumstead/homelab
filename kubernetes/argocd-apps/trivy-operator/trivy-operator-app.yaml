@@ -56,6 +56,9 @@ spec:
             # Only vulnerabilities with a fixed version are reported, so every
             # count in the metrics is something an update can fix.
             ignoreUnfixed: true
+            # A rootfs scan runs inside the scanned container and would also
+            # report the Trivy binary the scan job copies into this directory.
+            skipDirs: /var/trivyoperator
             storageSize: "2Gi"
             resources:
               requests:
