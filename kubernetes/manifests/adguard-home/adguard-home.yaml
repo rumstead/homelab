@@ -60,11 +60,12 @@ spec:
               mountPath: /opt/adguardhome/work
           resources:
             requests:
-              memory: 256Mi
+              memory: 512Mi
               cpu: 100m
             limits:
-              memory: 512Mi
-              cpu: 500m
+              # The blocklists hold about 1.7 million rules.
+              memory: 1536Mi
+              cpu: "1"
       volumes:
         - name: config
           persistentVolumeClaim:
