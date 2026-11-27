@@ -1,6 +1,6 @@
-# Monday reminder email. Reads Prometheus and mails the owner through Gmail with its own app password
-# from the weekly-reminder-smtp Secret (keys SMTP_USER, SMTP_PASSWORD, SMTP_FROM, SMTP_TO), so a revoked
-# Alertmanager credential does not silence it. It needs no Kubernetes API access.
+# Monday reminder email. Reads Prometheus and mails the owner through Gmail with the
+# weekly-reminder-smtp Secret (keys SMTP_USER, SMTP_PASSWORD, SMTP_FROM, SMTP_TO), which holds the
+# same Gmail account and app password as Alertmanager. It needs no Kubernetes API access.
 # Egress needed: kube-prometheus-stack-prometheus.monitoring:9090 and smtp.gmail.com:587 (and DNS).
 apiVersion: v1
 kind: ConfigMap

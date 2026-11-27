@@ -22,6 +22,6 @@ A CronJob in the `monitoring` namespace SHALL email the owner every Monday morni
 - **WHEN** a figure has no data for part of the week
 - **THEN** the email SHALL mark it incomplete instead of showing a misleading number
 
-#### Scenario: Alertmanager credential revoked
-- **WHEN** Alertmanager's Gmail app password is revoked
-- **THEN** the reminder SHALL still be sent
+#### Scenario: Gmail credential revoked
+- **WHEN** the Gmail app password shared by Alertmanager and the reminder is revoked
+- **THEN** no reminder SHALL arrive that Monday, and the missing email is the signal

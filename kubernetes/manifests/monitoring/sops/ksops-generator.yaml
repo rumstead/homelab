@@ -9,3 +9,4 @@ metadata:
 files:
   - ./alertmanager-config.sops.yaml
   - ./grafana-admin.sops.yaml
+  - ./weekly-reminder-smtp.sops.yaml

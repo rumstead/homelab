@@ -1,0 +1,26 @@
+apiVersion: v1
+kind: Secret
+metadata:
+    name: weekly-reminder-smtp
+    namespace: monitoring
+type: Opaque
+stringData:
+    SMTP_USER: ENC[AES256_GCM,data:L4yUsfv49wQybYqv07G3B1uRuQ==,iv:TY4IwWUsVVXawl6YNYg/6U8SSGd/uGmCn8pGQPMRZqo=,tag:gYAR2oKK6Ffho682W724qA==,type:str]
+    SMTP_PASSWORD: ENC[AES256_GCM,data:xjZkznVHAc357fNTvHyTrw==,iv:0YZIIRpt3rpWycQL7du9MZKtYXIC9uc7yAwvFDwG0Q8=,tag:mFF2gEJftqna8lkz+1fhAg==,type:str]
+    SMTP_FROM: ENC[AES256_GCM,data:Iu2XLaxFjnvNE1HzTM/FguZlaEG6drwyTnefzlkeMEvdSJGFhi5xDUAW,iv:+ssi1Op1Qjni1MlMpHt2dwUO0cW60h+1MQtCqCW6CM4=,tag:w3GqEdDN7xLXZwiI/5tqtg==,type:str]
+    SMTP_TO: ENC[AES256_GCM,data:2GqofZM6h8Re+GnVcn9zSBog6w==,iv:II8Ha8XyogoiKRMj5KqwJR5s1ylVrJtLpyJEraVyGIQ=,tag:SZYNAjbGSmS8vy6QDROKxA==,type:str]
+sops:
+    age:
+        - enc: |
+            -----BEGIN AGE ENCRYPTED FILE-----
+            YWdlLWVuY3J5cHRpb24ub3JnL3YxCi0+IFgyNTUxOSBqdk50ME9GN1NIQTQrTlR6
+            U2lDcU1NVnU2WWErMzczcWozUWpGdGRsVVcwCkVvRHp0RzVUOUZaRnZOdWZpZG85
+            d01FRkhjcDRYd2J2L1BOeTNXRjE3WXMKLS0tIFFDeHgwd0N4M2dEYTRnWm1jbWlz
+            TnB3MWJyenJ4OC9rdTY2Q3lqSXg5T2cKVtorCOnkzsqaX4/peRVu1hUGuCYXJGeU
+            L78R+M/4VgJuL9U8hR7gG7HO5xAODxljlXS4WRcm84upogw9PPqbZQ==
+            -----END AGE ENCRYPTED FILE-----
+          recipient: age16jjl5fju6syvlmqryqnscc80ertz87fydjf8dxfuhm77ycuw0clqwuyn85
+    encrypted_regex: ^(data|stringData)$
+    lastmodified: "2026-11-27T02:34:36Z"
+    mac: ENC[AES256_GCM,data:jex7Da5EGkyH4FGf4tcloBgXIrnja72D47lD8eDhGluzFUfAIzQgpvVpuwwogBNIWb/I4VS+GvYftIN/CY62ut4mudZ2l5Y7HooBKLxWEf8Pc8rtI+BEYZEl1Rd7RJVObFOqqaxOvi6cOXd7tbf7xlXuj7X1pwUUBvfShEVUY00=,iv:0HN30IhhXmK3d5EzSfVclR5RGpQQJo5LU4EIkVHknMQ=,tag:IwArnCmxlUbQqo4vUU18MQ==,type:str]
+    version: 3.13.3
