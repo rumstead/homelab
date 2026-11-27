@@ -1249,7 +1249,7 @@ data:
                 "type": "prometheus",
                 "uid": "${datasource}"
               },
-              "expr": "sum(increase(suricata_alerts_total[1h] ))",
+              "expr": "sum(increase(host_ids_alerts_total{test!=\"true\"}[1h] ))",
               "legendFormat": "this week"
             },
             {
@@ -1258,11 +1258,11 @@ data:
                 "type": "prometheus",
                 "uid": "${datasource}"
               },
-              "expr": "sum(increase(suricata_alerts_total[1h] offset 7d))",
+              "expr": "sum(increase(host_ids_alerts_total{test!=\"true\"}[1h] offset 7d))",
               "legendFormat": "last week"
             }
           ],
-          "description": "Shows no data until Suricata is deployed and its metrics are scraped. VM qcow2 sizes on crete have no metric and are not shown."
+          "description": "Suricata alerts on crete's uplink, all priorities. Shows no data until the host_ids role is applied. VM qcow2 sizes on crete have no metric and are not shown."
         },
         {
           "type": "row",
@@ -1749,7 +1749,7 @@ data:
                 "type": "prometheus",
                 "uid": "${datasource}"
               },
-              "expr": "host_dns_new_names_total{job=\"host-node-exporter\"} ",
+              "expr": "host_ids_names_new_domains{job=\"host-node-exporter\", test!=\"true\"} ",
               "legendFormat": "this week"
             },
             {
@@ -1758,11 +1758,11 @@ data:
                 "type": "prometheus",
                 "uid": "${datasource}"
               },
-              "expr": "host_dns_new_names_total{job=\"host-node-exporter\"} offset 7d",
+              "expr": "host_ids_names_new_domains{job=\"host-node-exporter\", test!=\"true\"} offset 7d",
               "legendFormat": "last week"
             }
           ],
-          "description": "Shows no data until a metric for names crete resolves for the first time exists."
+          "description": "New registrable domains crete contacted on its newest completed day. Shows no data until the host_ids role is applied."
         },
         {
           "type": "timeseries",
