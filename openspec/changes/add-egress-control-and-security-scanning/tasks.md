@@ -18,9 +18,9 @@
 - [ ] 3.4 Prove each host alert: an old Go release binary in a test directory outside `PATH`; synthetic `test="true"` metrics for Lynis and update health; one scanner timer stopped for a test window for the absent and stale rules; then remove the test files and restart the timer
 
 ## 4. Cluster egress, audit week
-- [ ] 4.1 Generate the in-cluster workload pairs from `hubble_flows_processed_total` and write the baseline `CiliumClusterwideNetworkPolicy` (only `kube-system` exempt) and one `egress` `CiliumNetworkPolicy` per application namespace with one spec per workload and `enableDefaultDeny` off, under `kubernetes/manifests/egress/`
-- [ ] 4.2 Set `policyAuditMode: true` in the Cilium values, sync, and confirm `policy-audit-mode` in `cilium-config` and `PolicyAuditMode: Enabled` on both agents
-- [ ] 4.3 Only then add the `egress` Argo CD app and sync the policies
+- [x] 4.1 Generate the in-cluster workload pairs from `hubble_flows_processed_total` and write the baseline `CiliumClusterwideNetworkPolicy` (only `kube-system` exempt) and one `egress` `CiliumNetworkPolicy` per application namespace with one spec per workload and `enableDefaultDeny` off, under `kubernetes/manifests/egress/`
+- [x] 4.2 Set `policyAuditMode: true` in the Cilium values, sync, and confirm `policy-audit-mode` in `cilium-config` and `PolicyAuditMode: Enabled` on both agents
+- [x] 4.3 Only then add the `egress` Argo CD app and sync the policies
 - [ ] 4.4 Turn on Hubble's static flow exporter for `AUDIT` verdicts on both nodes; run one deliberate unlisted `curl` from a policed pod, confirm it lands in the export, and add an audit PrometheusRule if any series also records it
 - [ ] 4.5 Run for at least 7 days, covering a golf-etl session, a sync of every Argo CD app, an AdGuard restart and filter refresh, an Alertmanager email, a Trivy database refresh, a forced test certificate renewal, a direct and a relayed Tailscale connection from the phone (each reaching the backend through the proxy), cold Git and Helm fetches after clearing the repo-server cache, and a restart of every workload
 - [ ] 4.6 Add every legitimate destination the audit found and record the ones left out on purpose
