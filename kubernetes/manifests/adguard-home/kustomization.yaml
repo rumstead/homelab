@@ -5,6 +5,7 @@ resources:
   - adguard-home.yaml
   - adguard-exporter.yaml
   - adguard-route.yaml
+  - adguard-tailscale-ingress.yaml
   - adguard-servicemonitor.yaml
 generators:
   - ksops-generator.yaml

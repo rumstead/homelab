@@ -69,6 +69,14 @@ specs:
                 protocol: TCP
       - toEndpoints:
           - matchLabels:
+              k8s:io.kubernetes.pod.namespace: adguard
+              app: adguard-home
+        toPorts:
+          - ports:
+              - port: "80"
+                protocol: TCP
+      - toEndpoints:
+          - matchLabels:
               k8s:io.kubernetes.pod.namespace: monitoring
               app.kubernetes.io/name: grafana
         toPorts:

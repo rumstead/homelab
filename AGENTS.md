@@ -138,6 +138,7 @@ Run every playbook from the repo root (`ansible.cfg` lives there). Each role is 
   - `grafana.tailb4b203.ts.net`
   - `lifts.tailb4b203.ts.net`
   - `golf-upload.tailb4b203.ts.net`
+  - `adguard.tailb4b203.ts.net`
 
 ## Secrets (SOPS)
 
