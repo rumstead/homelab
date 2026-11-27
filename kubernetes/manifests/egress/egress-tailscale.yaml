@@ -12,6 +12,8 @@ specs:
     egress:
       - toEntities:
           - kube-apiserver
+  # The operator reaches the control plane by name and DERP relays by IP,
+  # like the proxies below.
   - endpointSelector:
       matchLabels:
         app: operator
@@ -19,6 +21,15 @@ specs:
       egress: false
       ingress: false
     egress:
+      - toEntities:
+          - world
+        toPorts:
+          - ports:
+              - port: "443"
+                protocol: TCP
+              - port: "1"
+                endPort: 65535
+                protocol: UDP
       - toFQDNs:
           - matchName: tailscale.com
           - matchPattern: "*.tailscale.com"

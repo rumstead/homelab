@@ -11,6 +11,10 @@ spec:
   description: "Egress default deny outside kube-system, DNS allowed"
   endpointSelector:
     matchExpressions:
+      # Cilium's own endpoints (the Gateway's Envoy, health) have no namespace
+      # label, and NotIn alone would select them.
+      - key: k8s:io.kubernetes.pod.namespace
+        operator: Exists
       - key: k8s:io.kubernetes.pod.namespace
         operator: NotIn
         values:

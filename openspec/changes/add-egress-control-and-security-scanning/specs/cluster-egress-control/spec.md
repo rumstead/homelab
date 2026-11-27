@@ -11,6 +11,10 @@ A cluster-wide baseline policy SHALL be the only policy that enables egress defa
 - **WHEN** a pod in `kube-system` opens a connection
 - **THEN** the egress default deny SHALL NOT apply to it
 
+#### Scenario: Cilium's own endpoints
+- **WHEN** the Gateway's Envoy or Cilium's health endpoint opens a connection
+- **THEN** the egress default deny SHALL NOT apply to it
+
 #### Scenario: Ingress unchanged
 - **WHEN** a client reaches a service through `homelab-gateway` or a Tailscale ingress
 - **THEN** the egress policies SHALL NOT drop the request or its response
@@ -61,8 +65,8 @@ Prometheus SHALL email an alert naming the source workload and the destination w
 - **THEN** its alert group SHALL repeat at most once a day
 
 ### Requirement: Grafana Without Egress
-Grafana SHALL NOT send usage reports, check for updates, or load Gravatar images, and its egress policy SHALL allow no internet destinations.
+Grafana SHALL NOT send usage reports, check for updates, or load Gravatar images, and its egress policy SHALL allow no internet destination other than `grafana.com` for plugin installs.
 
 #### Scenario: Grafana running
 - **WHEN** Grafana runs for a day
-- **THEN** Hubble SHALL record no Grafana egress to the internet
+- **THEN** Hubble SHALL record no Grafana egress to the internet other than `grafana.com`

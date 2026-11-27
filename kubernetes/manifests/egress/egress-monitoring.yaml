@@ -37,6 +37,8 @@ specs:
                 protocol: TCP
               - port: "9256"
                 protocol: TCP
+  # Grafana installs its plugins, core data sources included, from
+  # grafana.com. Usage reporting and update checks are off in its settings.
   - endpointSelector:
       matchLabels:
         app.kubernetes.io/name: grafana
@@ -44,6 +46,12 @@ specs:
       egress: false
       ingress: false
     egress:
+      - toFQDNs:
+          - matchName: grafana.com
+        toPorts:
+          - ports:
+              - port: "443"
+                protocol: TCP
       - toEndpoints:
           - matchLabels:
               app.kubernetes.io/name: prometheus

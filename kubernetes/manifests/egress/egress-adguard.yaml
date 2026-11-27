@@ -4,9 +4,9 @@ metadata:
   name: egress
   namespace: adguard
 specs:
-  # AdGuard resolves through its own upstreams, never kube-dns, so its
-  # destinations are addresses: the upstream resolvers and GitHub's Pages and
-  # raw content range, where its filter lists are hosted.
+  # AdGuard resolves through its own upstreams (kube-dns only answers its
+  # private PTR lookups), so its destinations are addresses: the upstream
+  # resolvers and GitHub's Pages range, where its filter lists are hosted.
   - endpointSelector:
       matchLabels:
         app: adguard-home
