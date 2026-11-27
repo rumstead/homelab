@@ -4,11 +4,13 @@ kubernetes_minor: "{{ kubernetes_version.split('.')[:2] | join('.') }}"
 base_packages:
   - ansible
   - ansible-lint
+  - apt-show-versions
   - bash-completion
   - bind9-dnsutils
   - build-essential
   - ca-certificates
   - curl
+  - debsums
   - fzf
   - gh
   - git

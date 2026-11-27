@@ -11,8 +11,8 @@
     quiet: true
 
 - name: Allow key-only SSH logins and no root logins
-  ansible.builtin.copy:
-    src: 10-hardening.conf
+  ansible.builtin.template:
+    src: 10-hardening.conf.j2
     dest: /etc/ssh/sshd_config.d/10-hardening.conf
     owner: root
     group: root

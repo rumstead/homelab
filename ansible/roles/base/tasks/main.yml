@@ -131,6 +131,20 @@
     enabled: true
     state: started
 
+# Network protocols nothing on crete uses; refusing to load them removes old
+# kernel attack surface.
+- name: Block unused network protocol modules
+  ansible.builtin.copy:
+    dest: /etc/modprobe.d/homelab-unused-protocols.conf
+    owner: root
+    group: root
+    mode: "0644"
+    content: |
+      {% for module in ['dccp', 'sctp', 'rds', 'tipc'] %}
+      blacklist {{ module }}
+      install {{ module }} /bin/false
+      {% endfor %}
+
 - name: Install the cluster CLIs
   ansible.builtin.include_tasks: cli.yml
   loop: "{{ base_clis }}"

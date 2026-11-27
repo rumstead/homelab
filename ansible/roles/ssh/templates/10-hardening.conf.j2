@@ -1,0 +1,16 @@
+# sshd keeps the first value it reads, and this file sorts before
+# 50-cloud-init.conf.
+PasswordAuthentication no
+KbdInteractiveAuthentication no
+PermitRootLogin no
+AllowUsers {{ host_user }}
+MaxAuthTries 4
+LogLevel VERBOSE
+# Local forwarding stays on for the xrdp tunnel (ssh -L 3389:127.0.0.1:3389).
+AllowTcpForwarding local
+# crete has its own GitHub key, so nothing needs a forwarded agent.
+AllowAgentForwarding no
+Compression no
+TCPKeepAlive no
+ClientAliveInterval 300
+ClientAliveCountMax 2
