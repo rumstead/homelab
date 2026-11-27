@@ -63,7 +63,7 @@ spec:
               memory: 512Mi
               cpu: 100m
             limits:
-              # The blocklists hold about 1.7 million rules.
+              # The four blocklists hold about 1.5 million rules.
               memory: 1536Mi
               cpu: "1"
       volumes:
