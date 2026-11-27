@@ -13,13 +13,14 @@ spec:
         # priority 2 in the reviewed category list in the host_ids role
         # (host_ids_email_categories), so the list lives in one place. A series
         # appears with its first hit, which increase() does not count, so the
-        # second branch covers signatures not seen 15 minutes ago.
+        # second branch covers signatures with no sample in the previous 7 days
+        # (last_over_time keeps a Prometheus scrape gap from looking like a new series).
         - alert: SuricataHostAlert
           expr: |
             (increase(host_ids_alerts_total{job="host-node-exporter", notify="true", test!="true"}[15m]) > 0)
             or
             (host_ids_alerts_total{job="host-node-exporter", notify="true", test!="true"}
-              unless host_ids_alerts_total{job="host-node-exporter", notify="true", test!="true"} offset 15m)
+              unless last_over_time(host_ids_alerts_total{job="host-node-exporter", notify="true", test!="true"}[7d] offset 15m))
           labels:
             severity: warning
             alert_class: ids
@@ -31,7 +32,7 @@ spec:
               192.168.1.222 or 192.168.1.245 is a pod or node; any other LAN address is crete itself or another LAN device).
               Detection only: the traffic was not blocked.
             runbook: |
-              1. Hits: ssh 192.168.1.234 "sudo jq -c 'select(.event_type==\"alert\" and .alert.signature_id=={{ $labels.signature_id }}) | {timestamp, src_ip, dest_ip, dest_port, proto, signature: .alert.signature}' /var/log/suricata/eve.json | tail -10"
+              1. Hits: ssh 192.168.1.234 "sudo jq -c 'select(.event_type==\"alert\" and .alert.signature_id=={{ $labels.signature_id }}) | {timestamp, src_ip, dest_ip, dest_port, proto, signature: .alert.signature}' /var/log/host-ids/eve.json | tail -10"
               2. A pod's real identity: hubble observe --from-ip <src_ip> (relay port-forward in AGENTS.md)
 
     - name: host-ids-health.rules
@@ -48,8 +49,8 @@ spec:
               crete's uplink always carries some traffic (NTP, the cluster), so a flat packet counter means the
               capture on eno2 or Suricata itself has stopped, and nothing is being inspected.
             runbook: |
-              1. ssh 192.168.1.234 'systemctl status suricata --no-pager; sudo tail -20 /var/log/suricata/suricata.log'
-              2. Last stats: ssh 192.168.1.234 "sudo jq -c 'select(.event_type==\"stats\") | .stats.capture' /var/log/suricata/eve.json | tail -2"
+              1. ssh 192.168.1.234 'systemctl status suricata --no-pager; sudo tail -20 /var/log/host-ids/suricata.log'
+              2. Last stats: ssh 192.168.1.234 "sudo jq -c 'select(.event_type==\"stats\") | .stats.capture' /var/log/host-ids/eve.json | tail -2"
 
         - alert: SuricataKernelDrops
           expr: |
@@ -67,7 +68,21 @@ spec:
               The kernel dropped packets before Suricata read them, so traffic on eno2 went uninspected.
               Capture threads, ring size or offloads need tuning.
             runbook: |
-              1. ssh 192.168.1.234 "sudo jq -c 'select(.event_type==\"stats\") | .stats.capture' /var/log/suricata/eve.json | tail -2"
+              1. ssh 192.168.1.234 "sudo jq -c 'select(.event_type==\"stats\") | .stats.capture' /var/log/host-ids/eve.json | tail -2"
+
+        - alert: SuricataStatsMissing
+          expr: absent(host_ids_stats_timestamp_seconds{job="host-node-exporter", test!="true"})
+          for: 30m
+          labels:
+            severity: warning
+            alert_class: host
+            scanner: host_ids
+          annotations:
+            summary: "Suricata on crete has never produced stats"
+            description: >-
+              No stats timestamp is exported, so Suricata is not running, not writing EVE, or the metrics job has not run.
+            runbook: |
+              1. ssh 192.168.1.234 'systemctl status suricata --no-pager; ls -l /var/log/host-ids/; systemctl list-timers "host-ids-*"'
 
         - alert: SuricataEngineStalled
           expr: time() - host_ids_stats_timestamp_seconds{job="host-node-exporter", test!="true"} > 600
@@ -81,7 +96,7 @@ spec:
               Suricata writes a stats record every 30 seconds. The newest one is old, so the engine is stopped,
               hung, or no longer writing EVE.
             runbook: |
-              1. ssh 192.168.1.234 'systemctl status suricata --no-pager; ls -l /var/log/suricata/'
+              1. ssh 192.168.1.234 'systemctl status suricata --no-pager; ls -l /var/log/host-ids/'
 
         - alert: SuricataRulesOld
           expr: time() - host_ids_rules_last_success_timestamp_seconds{job="host-node-exporter", test!="true"} > 3 * 86400

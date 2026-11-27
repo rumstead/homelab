@@ -14,6 +14,10 @@
 # The same detection as the network role: the only wired PCI Ethernet NIC, or
 # host_nic when it is set. The NIC stays a bridge member once br0 exists, so
 # this finds the same one on every run.
+#
+# Suricata's default capture.disable-offloading is kept: it turns off rx/tx
+# checksum offload, GRO, TSO, GSO and scatter-gather on the uplink (and so on
+# br0's path), so Suricata sees real frames. Throughput on that NIC may drop.
 - name: Find the wired NICs
   ansible.builtin.set_fact:
     host_ids_wired_nics: >-
@@ -55,7 +59,7 @@
     group: root
     mode: "{{ item.mode }}"
   loop:
-    - { path: /var/log/suricata, mode: "0700" }
+    - { path: /var/log/host-ids, mode: "0700" }
     - { path: /etc/suricata/rules, mode: "0755" }
     - { path: /etc/systemd/system/suricata.service.d, mode: "0755" }
     - { path: "{{ host_ids_lib_dir }}", mode: "0755" }
@@ -118,14 +122,16 @@
     - Reload systemd for host-ids
     - Restart Suricata
 
+# Logs go to a directory this role owns and rotate with this role's own file;
+# the packaged /etc/logrotate.d/suricata is a conffile and stays untouched.
 - name: Bound the EVE log size
   ansible.builtin.copy:
-    dest: /etc/logrotate.d/suricata
+    dest: /etc/logrotate.d/host-ids
     owner: root
     group: root
     mode: "0644"
     content: |
-      /var/log/suricata/*.json /var/log/suricata/*.log {
+      /var/log/host-ids/*.json /var/log/host-ids/*.log {
           daily
           maxsize {{ host_ids_log_max_size }}
           rotate {{ host_ids_log_rotate }}
@@ -139,6 +145,16 @@
               /usr/bin/kill -HUP $(cat /var/run/suricata/suricata.pid)
           endscript
       }
+
+- name: Prune the Hyperscan signature cache
+  ansible.builtin.copy:
+    dest: /etc/tmpfiles.d/host-ids.conf
+    owner: root
+    group: root
+    mode: "0644"
+    content: |
+      # Each rule set change leaves a new cache file; drop ones unused for 14 days.
+      e /var/lib/suricata/cache/sgh - - - 14d
 
 - name: Write the script configuration
   ansible.builtin.copy:

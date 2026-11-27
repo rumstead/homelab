@@ -7,7 +7,7 @@ import re
 from datetime import datetime
 
 CONFIG_PATH = os.environ.get("HOST_IDS_CONFIG", "/usr/local/lib/host-ids/config.json")
-EVE_PATH = os.environ.get("HOST_IDS_EVE", "/var/log/suricata/eve.json")
+EVE_PATH = os.environ.get("HOST_IDS_EVE", "/var/log/host-ids/eve.json")
 # How much of the end of EVE is searched for the newest stats record.
 TAIL_BYTES = 1 << 20
 
@@ -56,7 +56,8 @@ def last_stats_event(path=None):
 def stats_values(event):
     """The counters the scripts use, from one stats event."""
     stats = event.get("stats", {})
-    engine = stats.get("detect", {}).get("engine", {})
+    # Suricata 8 writes the detect engines as a list.
+    engine = (stats.get("detect", {}).get("engines") or [{}])[0]
     capture = stats.get("capture", {})
     return {
         "timestamp": event.get("timestamp", ""),

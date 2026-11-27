@@ -157,7 +157,7 @@ data:
         {
           "type": "timeseries",
           "title": "Alerts per hour by signature",
-          "description": "Signature IDs past the cap are grouped as other. Read the hits on crete: sudo jq -c 'select(.event_type==\"alert\")' /var/log/suricata/eve.json | tail",
+          "description": "Signature IDs past the cap are grouped as other. Read the hits on crete: sudo jq -c 'select(.event_type==\"alert\")' /var/log/host-ids/eve.json | tail",
           "id": 4,
           "datasource": {
             "type": "prometheus",

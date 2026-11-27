@@ -33,7 +33,7 @@ vars:
     VXLAN_PORTS: 4789
     TEREDO_PORTS: 3544
 
-default-log-dir: /var/log/suricata
+default-log-dir: /var/log/host-ids
 
 stats:
   enabled: yes
@@ -75,7 +75,9 @@ af-packet:
     use-mmap: yes
     tpacket-v3: yes
     threads: {{ host_ids_capture_threads }}
-    # Frames from crete's own transmit path carry checksums the NIC adds later.
+    # Suricata's default disable-offloading turns off tx/rx checksum offload on
+    # the NIC, so every frame carries a real checksum; not verifying them keeps
+    # the capture cheap.
     checksum-checks: no
 
 unix-command:
