@@ -1,0 +1,127 @@
+#!/usr/bin/env python3
+"""Exports Suricata's capture health and alert counts for node_exporter.
+
+Reads EVE JSON with a cursor (inode and byte offset) kept in the state file, so
+each run counts only new lines and a rotation loses nothing: the rotated file
+is finished through its new name before the new file is read from the start.
+
+- stats events give packets, kernel drops, loaded rules and the time of the
+  newest stats record (the engine's own heartbeat)
+- alert events are counted per signature ID, with priority, category and
+  whether the alert qualifies for email. Signatures past the cap are counted
+  under signature_id="other" so label cardinality stays bounded.
+"""
+import json
+import os
+import sys
+
+sys.path.insert(0, "/usr/local/lib/host-scanning")
+sys.path.insert(0, os.environ.get("HOST_IDS_LIB", "/usr/local/lib/host-ids"))
+from host_ids_common import EVE_PATH, load_config, parse_time, rotated_eve_files, stats_values  # noqa: E402
+from textfile_metrics import Metrics, run_scanner  # noqa: E402
+
+SCANNER = "host_ids"
+
+
+def read_from(path, offset):
+    """Returns (complete lines, new offset). A partial last line waits for the next run."""
+    with open(path, "rb") as handle:
+        if os.fstat(handle.fileno()).st_size < offset:
+            offset = 0
+        handle.seek(offset)
+        data = handle.read()
+    end = data.rfind(b"\n") + 1
+    return data[:end].decode(errors="replace").splitlines(), offset + end
+
+
+def new_lines(state):
+    """Lines written since the last run, across at most one rotation."""
+    cursor = state.get("cursor")
+    try:
+        current = os.stat(EVE_PATH)
+    except FileNotFoundError:
+        return []
+    lines = []
+    if cursor and cursor["inode"] != current.st_ino:
+        for rotated in rotated_eve_files():
+            if not rotated.endswith(".gz") and os.stat(rotated).st_ino == cursor["inode"]:
+                lines, _ = read_from(rotated, cursor["offset"])
+                break
+        else:
+            state["lost_cursors"] = state.get("lost_cursors", 0) + 1
+        cursor = None
+    current_lines, offset = read_from(EVE_PATH, cursor["offset"] if cursor else 0)
+    state["cursor"] = {"inode": current.st_ino, "offset": offset}
+    return lines + current_lines
+
+
+def notifies(priority, category, config):
+    return priority == 1 or (priority == 2 and category in config["email_categories"])
+
+
+def count_alert(alerts, alert, config):
+    sid = str(alert.get("signature_id", 0))
+    priority = int(alert.get("severity", 3))
+    category = alert.get("category", "")
+    key = "|".join([sid, str(priority), category])
+    if key not in alerts and len({k.split("|")[0] for k in alerts} - {"other"}) >= config["max_signatures"]:
+        key = "|".join(["other", str(priority), category])
+    alerts[key] = alerts.get(key, 0) + 1
+
+
+def collect(metrics: Metrics, state):
+    config = load_config()
+    alerts = state.setdefault("alerts", {})
+    newest_stats = None
+    for line in new_lines(state):
+        is_alert = '"event_type":"alert"' in line
+        if not is_alert and '"event_type":"stats"' not in line:
+            continue
+        try:
+            event = json.loads(line)
+        except ValueError:
+            continue
+        if is_alert:
+            count_alert(alerts, event.get("alert", {}), config)
+        else:
+            newest_stats = event
+    if newest_stats:
+        state["stats_values"] = stats_values(newest_stats)
+
+    values = state.get("stats_values")
+    if values:
+        if values["packets"] is not None:
+            metrics.add("host_ids_packets_total", values["packets"], "Packets Suricata received", "counter")
+        if values["drops"] is not None:
+            metrics.add(
+                "host_ids_kernel_drops_total", values["drops"], "Packets the kernel dropped before Suricata", "counter"
+            )
+        if values["rules_loaded"] is not None:
+            metrics.add("host_ids_rules_loaded", values["rules_loaded"], "Rules loaded in the running engine")
+        metrics.add(
+            "host_ids_stats_timestamp_seconds",
+            parse_time(values["timestamp"]),
+            "Time of the newest Suricata stats record",
+        )
+    for key, count in sorted(alerts.items()):
+        sid, priority, category = key.split("|", 2)
+        metrics.add(
+            "host_ids_alerts_total",
+            count,
+            "Suricata alerts by signature",
+            "counter",
+            signature_id=sid,
+            priority=priority,
+            category=category,
+            notify=str(notifies(int(priority), category, config)).lower(),
+        )
+    metrics.add(
+        "host_ids_eve_lost_cursors_total",
+        state.get("lost_cursors", 0),
+        "Rotations after which unread EVE lines were gone",
+        "counter",
+    )
+
+
+if __name__ == "__main__":
+    sys.exit(run_scanner(SCANNER, collect))

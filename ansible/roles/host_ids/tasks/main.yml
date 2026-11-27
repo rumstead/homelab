@@ -1,0 +1,281 @@
+---
+# The scripts import the shared textfile helper that host_scanning installs.
+- name: Check that the host_scanning helper is installed
+  ansible.builtin.stat:
+    path: "{{ host_ids_scanning_lib_dir }}/textfile_metrics.py"
+  register: host_ids_helper
+
+- name: Stop unless the host_scanning role has run
+  ansible.builtin.assert:
+    that: host_ids_helper.stat.exists
+    fail_msg: "{{ host_ids_scanning_lib_dir }}/textfile_metrics.py is missing. Run the host_scanning role first (--tags host_scanning,host_ids)."
+    quiet: true
+
+# The same detection as the network role: the only wired PCI Ethernet NIC, or
+# host_nic when it is set. The NIC stays a bridge member once br0 exists, so
+# this finds the same one on every run.
+#
+# Suricata's default capture.disable-offloading is kept: it turns off rx/tx
+# checksum offload, GRO, TSO, GSO and scatter-gather on the uplink (and so on
+# br0's path), so Suricata sees real frames. Throughput on that NIC may drop.
+- name: Find the wired NICs
+  ansible.builtin.set_fact:
+    host_ids_wired_nics: >-
+      {{ ansible_facts.interfaces | map('regex_replace', '-', '_') | map('extract', ansible_facts)
+         | selectattr('type', 'defined') | selectattr('type', 'equalto', 'ether')
+         | selectattr('pciid', 'defined') | map(attribute='device') | reject('match', 'wl') | sort }}
+  when: host_nic is not defined
+
+- name: Stop unless there is exactly one wired NIC
+  ansible.builtin.assert:
+    that: host_ids_wired_nics | length == 1
+    fail_msg: "Wired NICs: {{ host_ids_wired_nics | join(', ') or 'none' }}. Set host_nic in ansible/group_vars/all.yml."
+    quiet: true
+  when: host_nic is not defined
+
+- name: Use the wired NIC as the capture interface
+  ansible.builtin.set_fact:
+    host_ids_nic: "{{ host_nic | default(host_ids_wired_nics | first) }}"
+
+- name: Check that the capture interface exists
+  ansible.builtin.assert:
+    that: host_ids_nic in ansible_facts.interfaces
+    fail_msg: "{{ host_ids_nic }} not found. Interfaces: {{ ansible_facts.interfaces | join(', ') }}. Fix host_nic in ansible/group_vars/all.yml."
+    quiet: true
+
+- name: Install Suricata, its rule updater and the Public Suffix List
+  ansible.builtin.apt:
+    name:
+      - suricata
+      - suricata-update
+      - publicsuffix
+    state: present
+
+- name: Create the host-ids directories
+  ansible.builtin.file:
+    path: "{{ item.path }}"
+    state: directory
+    owner: root
+    group: root
+    mode: "{{ item.mode }}"
+  loop:
+    - { path: /var/log/host-ids, mode: "0700" }
+    - { path: /etc/suricata/rules, mode: "0755" }
+    - { path: /etc/systemd/system/suricata.service.d, mode: "0755" }
+    - { path: "{{ host_ids_lib_dir }}", mode: "0755" }
+    - { path: "{{ host_ids_work_dir }}", mode: "0700" }
+    - { path: "{{ host_ids_baseline_dir }}", mode: "0700" }
+  loop_control:
+    label: "{{ item.path }}"
+
+- name: Write the local test rule
+  ansible.builtin.copy:
+    dest: /etc/suricata/rules/local.rules
+    owner: root
+    group: root
+    mode: "0644"
+    content: |
+      {{ 'alert http any any -> any any (msg:"HOMELAB local test rule"; content:"' ~ host_ids_test_string
+         ~ '"; sid:9000001; rev:1; classtype:trojan-activity; priority:1;)' }}
+  notify: Reload Suricata rules
+
+- name: Write the suppressed signatures
+  ansible.builtin.copy:
+    dest: /etc/suricata/threshold-host-ids.config
+    owner: root
+    group: root
+    mode: "0644"
+    content: |
+      # Signatures suppressed by Ansible (host_ids_suppressed_signatures).
+      {% for sid in host_ids_suppressed_signatures %}
+      suppress gen_id 1, sig_id {{ sid }}
+      {% endfor %}
+  notify: Reload Suricata rules
+
+# The first rule set, so the configuration below has rules to validate against.
+- name: Fetch the first Emerging Threats Open rule set
+  ansible.builtin.command: /usr/bin/suricata-update --no-test --no-reload
+  args:
+    creates: /var/lib/suricata/rules/suricata.rules
+
+- name: Write the Suricata configuration
+  ansible.builtin.template:
+    src: host-ids.yaml.j2
+    dest: /etc/suricata/host-ids.yaml
+    owner: root
+    group: root
+    mode: "0644"
+    validate: /usr/bin/suricata -T -c %s
+  notify: Restart Suricata
+
+- name: Run Suricata with the host-ids configuration
+  ansible.builtin.copy:
+    dest: /etc/systemd/system/suricata.service.d/host-ids.conf
+    owner: root
+    group: root
+    mode: "0644"
+    content: |
+      [Service]
+      ExecStart=
+      ExecStart=/usr/bin/suricata -D --af-packet -c /etc/suricata/host-ids.yaml --pidfile /var/run/suricata/suricata.pid
+  notify:
+    - Reload systemd for host-ids
+    - Restart Suricata
+
+# Logs go to a directory this role owns and rotate with this role's own file;
+# the packaged /etc/logrotate.d/suricata is a conffile and stays untouched.
+- name: Bound the EVE log size
+  ansible.builtin.copy:
+    dest: /etc/logrotate.d/host-ids
+    owner: root
+    group: root
+    mode: "0644"
+    content: |
+      /var/log/host-ids/*.json /var/log/host-ids/*.log {
+          daily
+          maxsize {{ host_ids_log_max_size }}
+          rotate {{ host_ids_log_rotate }}
+          missingok
+          notifempty
+          compress
+          delaycompress
+          create 0600 root root
+          sharedscripts
+          postrotate
+              /usr/bin/kill -HUP $(cat /var/run/suricata/suricata.pid)
+          endscript
+      }
+
+- name: Prune the Hyperscan signature cache
+  ansible.builtin.copy:
+    dest: /etc/tmpfiles.d/host-ids.conf
+    owner: root
+    group: root
+    mode: "0644"
+    content: |
+      # Each rule set change leaves a new cache file; drop ones unused for 14 days.
+      e /var/lib/suricata/cache/sgh - - - 14d
+
+- name: Write the script configuration
+  ansible.builtin.copy:
+    dest: "{{ host_ids_lib_dir }}/config.json"
+    owner: root
+    group: root
+    mode: "0644"
+    content: "{{ host_ids_script_config | to_nice_json }}\n"
+  vars:
+    host_ids_script_config:
+      bridge: "{{ bridge_name }}"
+      email_categories: "{{ host_ids_email_categories }}"
+      max_signatures: "{{ host_ids_max_signatures }}"
+      min_rules: "{{ host_ids_min_rules }}"
+      loaded_tolerance: "{{ host_ids_loaded_tolerance }}"
+
+- name: Install the shared script helper
+  ansible.builtin.copy:
+    src: host_ids_common.py
+    dest: "{{ host_ids_lib_dir }}/host_ids_common.py"
+    owner: root
+    group: root
+    mode: "0644"
+
+- name: Install the host-ids scripts
+  ansible.builtin.copy:
+    src: "{{ item.name }}"
+    dest: "/usr/local/sbin/{{ item.name }}"
+    owner: root
+    group: root
+    mode: "0755"
+  loop: "{{ host_ids_jobs }}"
+  loop_control:
+    label: "{{ item.name }}"
+
+- name: Install the host-ids services
+  ansible.builtin.copy:
+    dest: "/etc/systemd/system/{{ item.name }}.service"
+    owner: root
+    group: root
+    mode: "0644"
+    content: |
+      [Unit]
+      Description=Host IDS job {{ item.name }}
+      After=network-online.target
+      Wants=network-online.target
+
+      [Service]
+      Type=oneshot
+      Environment=HOST_SCANNING_TEXTFILE_DIR={{ host_ids_textfile_dir }}
+      Environment=HOST_SCANNING_STATE_DIR={{ host_ids_state_dir }}
+      Environment=HOST_IDS_BASELINE_DIR={{ host_ids_baseline_dir }}
+      Environment=HOST_IDS_WORK_DIR={{ host_ids_work_dir }}
+      ExecStart=/usr/local/sbin/{{ item.name }}
+      Nice=10
+      IOSchedulingClass=idle
+  loop: "{{ host_ids_jobs }}"
+  loop_control:
+    label: "{{ item.name }}"
+  notify: Reload systemd for host-ids
+
+- name: Install the host-ids timers
+  ansible.builtin.copy:
+    dest: "/etc/systemd/system/{{ item.name }}.timer"
+    owner: root
+    group: root
+    mode: "0644"
+    content: |
+      [Unit]
+      Description=Run {{ item.name }} on a schedule
+
+      [Timer]
+      OnCalendar={{ item.schedule }}
+      RandomizedDelaySec={{ item.delay }}
+      Persistent=true
+
+      [Install]
+      WantedBy=timers.target
+  loop: "{{ host_ids_jobs }}"
+  loop_control:
+    label: "{{ item.name }}"
+  notify: Reload systemd for host-ids
+
+- name: Flush the handlers
+  ansible.builtin.meta: flush_handlers
+
+# In check mode the unit files above are not written yet.
+- name: Enable Suricata
+  ansible.builtin.systemd_service:
+    name: suricata.service
+    enabled: true
+    state: started
+  ignore_errors: "{{ ansible_check_mode }}"
+
+- name: Enable the host-ids timers
+  ansible.builtin.systemd_service:
+    name: "{{ item.name }}.timer"
+    enabled: true
+    state: started
+  loop: "{{ host_ids_jobs }}"
+  loop_control:
+    label: "{{ item.name }}"
+  ignore_errors: "{{ ansible_check_mode }}"
+
+# A timer that has never fired waits for its first scheduled time, so a job
+# without results is started once now instead of alerting as missing.
+- name: Check which jobs have results
+  ansible.builtin.stat:
+    path: "{{ host_ids_textfile_dir }}/{{ item.metrics }}.prom"
+  loop: "{{ host_ids_jobs }}"
+  loop_control:
+    label: "{{ item.name }}"
+  register: host_ids_results
+
+- name: Start jobs that have no results yet
+  ansible.builtin.systemd_service:
+    name: "{{ item.item.name }}.service"
+    state: started
+    no_block: true
+  loop: "{{ host_ids_results.results }}"
+  loop_control:
+    label: "{{ item.item.name }}"
+  when: not item.stat.exists
+  ignore_errors: "{{ ansible_check_mode }}"

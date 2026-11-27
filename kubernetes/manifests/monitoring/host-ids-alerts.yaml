@@ -1,0 +1,165 @@
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: host-ids-alerts
+  namespace: monitoring
+  labels:
+    release: kube-prometheus-stack
+spec:
+  groups:
+    - name: host-ids.rules
+      rules:
+        # host_ids_alerts_total carries notify="true" for priority 1 and for
+        # priority 2 in the reviewed category list in the host_ids role
+        # (host_ids_email_categories), so the list lives in one place. A series
+        # appears with its first hit, which increase() does not count, so the
+        # second branch covers signatures with no sample in the previous 7 days
+        # (last_over_time keeps a Prometheus scrape gap from looking like a new series).
+        - alert: SuricataHostAlert
+          expr: |
+            (increase(host_ids_alerts_total{job="host-node-exporter", notify="true", test!="true"}[15m]) > 0)
+            or
+            (host_ids_alerts_total{job="host-node-exporter", notify="true", test!="true"}
+              unless last_over_time(host_ids_alerts_total{job="host-node-exporter", notify="true", test!="true"}[7d] offset 15m))
+          labels:
+            severity: warning
+            alert_class: ids
+          annotations:
+            summary: "Suricata alert {{ $labels.signature_id }} ({{ $labels.category }}) on crete's uplink"
+            description: >-
+              Suricata saw traffic on eno2 matching signature {{ $labels.signature_id }}, priority {{ $labels.priority }}.
+              eno2 carries crete's own traffic and the Talos nodes' traffic after masquerade (a source of
+              192.168.1.222 or 192.168.1.245 is a pod or node; any other LAN address is crete itself or another LAN device).
+              Detection only: the traffic was not blocked.
+            runbook: |
+              1. Hits: ssh 192.168.1.234 "sudo jq -c 'select(.event_type==\"alert\" and .alert.signature_id=={{ $labels.signature_id }}) | {timestamp, src_ip, dest_ip, dest_port, proto, signature: .alert.signature}' /var/log/host-ids/eve.json | tail -10"
+              2. A pod's real identity: hubble observe --from-ip <src_ip> (relay port-forward in AGENTS.md)
+
+    - name: host-ids-health.rules
+      rules:
+        - alert: SuricataCaptureStalled
+          expr: increase(host_ids_packets_total{job="host-node-exporter", test!="true"}[10m]) == 0
+          labels:
+            severity: warning
+            alert_class: host
+            scanner: host_ids
+          annotations:
+            summary: "Suricata on crete has captured no packets for 10 minutes"
+            description: >-
+              crete's uplink always carries some traffic (NTP, the cluster), so a flat packet counter means the
+              capture on eno2 or Suricata itself has stopped, and nothing is being inspected.
+            runbook: |
+              1. ssh 192.168.1.234 'systemctl status suricata --no-pager; sudo tail -20 /var/log/host-ids/suricata.log'
+              2. Last stats: ssh 192.168.1.234 "sudo jq -c 'select(.event_type==\"stats\") | .stats.capture' /var/log/host-ids/eve.json | tail -2"
+
+        - alert: SuricataKernelDrops
+          expr: |
+            increase(host_ids_kernel_drops_total{job="host-node-exporter", test!="true"}[1h])
+              / increase(host_ids_packets_total{job="host-node-exporter", test!="true"}[1h]) > 0.01
+            and
+            increase(host_ids_packets_total{job="host-node-exporter", test!="true"}[1h]) >= 10000
+          labels:
+            severity: warning
+            alert_class: host
+            scanner: host_ids
+          annotations:
+            summary: "Suricata on crete dropped {{ $value | humanizePercentage }} of packets in the last hour"
+            description: >-
+              The kernel dropped packets before Suricata read them, so traffic on eno2 went uninspected.
+              Capture threads, ring size or offloads need tuning.
+            runbook: |
+              1. ssh 192.168.1.234 "sudo jq -c 'select(.event_type==\"stats\") | .stats.capture' /var/log/host-ids/eve.json | tail -2"
+
+        - alert: SuricataStatsMissing
+          expr: absent(host_ids_stats_timestamp_seconds{job="host-node-exporter", test!="true"})
+          for: 30m
+          labels:
+            severity: warning
+            alert_class: host
+            scanner: host_ids
+          annotations:
+            summary: "Suricata on crete has never produced stats"
+            description: >-
+              No stats timestamp is exported, so Suricata is not running, not writing EVE, or the metrics job has not run.
+            runbook: |
+              1. ssh 192.168.1.234 'systemctl status suricata --no-pager; ls -l /var/log/host-ids/; systemctl list-timers "host-ids-*"'
+
+        - alert: SuricataEngineStalled
+          expr: time() - host_ids_stats_timestamp_seconds{job="host-node-exporter", test!="true"} > 600
+          labels:
+            severity: warning
+            alert_class: host
+            scanner: host_ids
+          annotations:
+            summary: "Suricata's stats on crete have not advanced for {{ $value | humanizeDuration }}"
+            description: >-
+              Suricata writes a stats record every 30 seconds. The newest one is old, so the engine is stopped,
+              hung, or no longer writing EVE.
+            runbook: |
+              1. ssh 192.168.1.234 'systemctl status suricata --no-pager; ls -l /var/log/host-ids/'
+
+        - alert: SuricataRulesOld
+          expr: time() - host_ids_rules_last_success_timestamp_seconds{job="host-node-exporter", test!="true"} > 3 * 86400
+          labels:
+            severity: warning
+            alert_class: host
+            scanner: host_ids_rules
+          annotations:
+            summary: "crete's Suricata rules were last updated and confirmed loaded {{ $value | humanizeDuration }} ago"
+            description: >-
+              The daily suricata-update has not completed with the rules confirmed loaded for over 3 days. The last
+              good set is still running.
+            runbook: |
+              1. ssh 192.168.1.234 'sudo journalctl -u host-ids-update-rules --since -3d | tail -40'
+
+        - alert: SuricataRulesNotLoaded
+          expr: host_ids_rules_loaded{job="host-node-exporter", test!="true"} < 1000
+          for: 10m
+          labels:
+            severity: warning
+            alert_class: host
+            scanner: host_ids
+          annotations:
+            summary: "Suricata on crete has only {{ $value }} rules loaded"
+            description: >-
+              The Emerging Threats Open set holds tens of thousands of rules. Suricata is running with
+              almost none, so it detects almost nothing.
+            runbook: |
+              1. ssh 192.168.1.234 'sudo suricata -T -c /etc/suricata/host-ids.yaml 2>&1 | tail -20'
+
+    - name: host-ids-job-health.rules
+      rules:
+        # A job that stops running keeps its last results, so the age of its
+        # last success shows it stopped.
+        - alert: HostIdsJobStale
+          expr: |
+            label_replace(time() - host_ids_last_success_timestamp_seconds{job="host-node-exporter", test!="true"} > 600, "scanner", "host_ids", "", "")
+            or
+            label_replace(time() - host_ids_names_last_success_timestamp_seconds{job="host-node-exporter", test!="true"} > 2 * 86400, "scanner", "host_ids_names", "", "")
+          labels:
+            severity: warning
+            alert_class: host
+          annotations:
+            summary: "{{ $labels.scanner }} on crete last succeeded {{ $value | humanizeDuration }} ago"
+            description: >-
+              The job that exports Suricata metrics or crete's first-seen names has not succeeded within twice its schedule.
+            runbook: |
+              1. ssh 192.168.1.234 'systemctl list-timers "host-ids-*"; sudo journalctl -u "host-ids-*" --since -2d | tail -50'
+
+        - alert: HostIdsJobMissing
+          expr: |
+            label_replace(absent(host_ids_last_success_timestamp_seconds{job="host-node-exporter", test!="true"}), "scanner", "host_ids", "", "")
+            or
+            label_replace(absent(host_ids_rules_last_success_timestamp_seconds{job="host-node-exporter", test!="true"}), "scanner", "host_ids_rules", "", "")
+            or
+            label_replace(absent(host_ids_names_last_success_timestamp_seconds{job="host-node-exporter", test!="true"}), "scanner", "host_ids_names", "", "")
+          for: 30m
+          labels:
+            severity: warning
+            alert_class: host
+          annotations:
+            summary: "{{ $labels.scanner }} on crete has no results"
+            description: >-
+              The job's metrics file is missing from /var/lib/node_exporter/textfile.
+            runbook: |
+              1. ssh 192.168.1.234 'ls -l /var/lib/node_exporter/textfile; systemctl list-timers "host-ids-*"'

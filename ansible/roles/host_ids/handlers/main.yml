@@ -1,0 +1,18 @@
+---
+- name: Reload systemd for host-ids
+  ansible.builtin.systemd_service:
+    daemon_reload: true
+
+- name: Restart Suricata
+  ansible.builtin.systemd_service:
+    name: suricata.service
+    state: restarted
+  # In check mode the unit does not exist before the package is installed.
+  ignore_errors: "{{ ansible_check_mode }}"
+
+# A running engine picks up the changed rule and threshold files.
+- name: Reload Suricata rules
+  ansible.builtin.command: /usr/bin/suricatasc -c reload-rules
+  register: host_ids_reload
+  failed_when: false
+  changed_when: host_ids_reload.rc == 0

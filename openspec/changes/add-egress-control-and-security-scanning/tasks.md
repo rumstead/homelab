@@ -35,10 +35,10 @@
 - [ ] 5.7 All Argo CD apps Synced and Healthy, a golf-etl session processes, Tailscale ingresses load from the phone, AdGuard refreshes its filters after a restart
 
 ## 6. Host traffic detection
-- [ ] 6.1 Add the `host_ids` role: Suricata on `eno2` in IDS mode, daily validated `suricata-update` with loaded-rules check, EVE logging with logrotate and restricted permissions, the metrics script with a rotation-safe cursor, the first-seen-name job, and the local test rule
+- [x] 6.1 Add the `host_ids` role: Suricata on `eno2` in IDS mode, daily validated `suricata-update` with loaded-rules check, EVE logging with logrotate and restricted permissions, the metrics script with a rotation-safe cursor, the first-seen-name job, and the local test rule
 - [ ] 6.2 Confirm no new listening ports on crete (`ss -lntu` before and after) and RAM use under 1 GB
 - [ ] 6.3 Verify coverage: a request and its response from crete and from a pod on each node appear in EVE with the right addresses, matched against a short `tcpdump` on `eno2`
-- [ ] 6.4 Add the Suricata alert and capture-health PrometheusRules
+- [x] 6.4 Add the Suricata alert and capture-health PrometheusRules
 - [ ] 6.5 Prove them: the local test rule from crete; `testmynids.org` from crete and from a pod in a test namespace with a temporary allow; Suricata stopped for a test window for the capture-health rule; each with a quiet negative
 - [ ] 6.6 Add the first-seen-name panels to Grafana; after 4 weeks, review the daily counts and either set an email threshold from them or leave it dashboard only
 - [ ] 6.7 USB backup, add the HaGeZi Threat Intelligence Feeds list, confirm it blocks a test domain and that browsing and `apt update` on crete still work, USB backup again, and write the one-toggle undo into the README

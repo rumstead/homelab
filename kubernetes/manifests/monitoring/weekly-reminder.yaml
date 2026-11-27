@@ -33,7 +33,7 @@ data:
         ("Blocked egress flows",
          'sum(increase(hubble_flows_to_world_total{{verdict=~"DROPPED|AUDIT"}}[7d] {O}))', "hubble-metrics", "int"),
         ("Suricata hits",
-         'sum(increase(suricata_alerts_total[7d] {O}))', None, "int"),
+         'sum(increase(host_ids_alerts_total{{test!="true"}}[7d] {O}))', "host-node-exporter", "int"),
         ("Open fixable critical/high findings",
          'sum(max by (namespace, image_repository, image_tag) (trivy_image_vulnerabilities{{severity=~"Critical|High"}} {O}))'
          ' + sum(host_trivy_vulnerabilities{{fixable="true", severity=~"CRITICAL|HIGH"}} {O})',
