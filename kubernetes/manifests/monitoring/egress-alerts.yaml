@@ -1,0 +1,73 @@
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: egress-alerts
+  namespace: monitoring
+  labels:
+    release: kube-prometheus-stack
+spec:
+  groups:
+    - name: egress.rules
+      rules:
+        # A counter that appears with its first event has no increase(), so
+        # each rule also fires on a positive series that did not exist 10
+        # minutes ago. Trivy scan jobs' version checks to check.trivy.dev are
+        # blocked on purpose and never alert.
+        - alert: EgressWouldBeDropped
+          expr: |
+            sum by (source_namespace, source, destination, port) (
+              increase(hubble_flows_to_world_total{verdict="AUDIT", destination!="check.trivy.dev"}[10m]) > 0
+              or
+              (hubble_flows_to_world_total{verdict="AUDIT", destination!="check.trivy.dev"} > 0
+                unless hubble_flows_to_world_total{verdict="AUDIT"} offset 10m)
+            )
+          labels:
+            severity: warning
+            alert_class: egress
+          annotations:
+            summary: "{{ $labels.source }} reached {{ $labels.destination }}:{{ $labels.port }}, which its egress allowlist does not allow"
+            description: >-
+              Cilium is in audit mode, so the connection went through. Add the
+              destination to kubernetes/manifests/egress/egress-{{ $labels.source_namespace }}.yaml
+              if it is legitimate.
+            runbook: |
+              1. Details: kubectl -n kube-system exec ds/cilium -c cilium-agent -- grep '"verdict":"AUDIT"' /var/run/cilium/hubble/audit.log | tail
+
+        - alert: EgressDropped
+          expr: |
+            sum by (source_namespace, source, destination, port) (
+              increase(hubble_flows_to_world_total{verdict="DROPPED", destination!="check.trivy.dev"}[10m]) > 0
+              or
+              (hubble_flows_to_world_total{verdict="DROPPED", destination!="check.trivy.dev"} > 0
+                unless hubble_flows_to_world_total{verdict="DROPPED"} offset 10m)
+            )
+          labels:
+            severity: warning
+            alert_class: egress
+          annotations:
+            summary: "Egress policy blocked {{ $labels.source }} from reaching {{ $labels.destination }}:{{ $labels.port }}"
+            description: >-
+              If the destination is legitimate, add it to
+              kubernetes/manifests/egress/egress-{{ $labels.source_namespace }}.yaml.
+              To restore egress at once, switch Cilium to audit mode on both agents
+              (cilium-dbg config PolicyAuditMode=Enabled) and fix the allowlist after.
+            runbook: |
+              1. kubectl -n kube-system exec ds/cilium -c cilium-agent -- hubble observe --verdict DROPPED --last 20
+
+        # In-cluster connections. These also count ingress denials (Argo CD's
+        # NetworkPolicies), so the direction is not known from the metric.
+        - alert: ClusterConnectionDenied
+          expr: |
+            sum by (source_namespace, source, destination_namespace, destination) (
+              increase(hubble_drop_total{reason="POLICY_DENIED", destination!~"reserved:world"}[10m]) > 0
+              or
+              (hubble_drop_total{reason="POLICY_DENIED", destination!~"reserved:world"} > 0
+                unless hubble_drop_total{reason="POLICY_DENIED"} offset 10m)
+            )
+          labels:
+            severity: warning
+            alert_class: egress
+          annotations:
+            summary: "Network policy denied {{ $labels.source }} to {{ $labels.destination }}"
+            description: >-
+              An in-cluster connection was dropped by policy (egress allowlist or an ingress NetworkPolicy).
