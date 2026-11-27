@@ -1,0 +1,64 @@
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: resource-alerts
+  namespace: monitoring
+  labels:
+    release: kube-prometheus-stack
+spec:
+  groups:
+    - name: resource-limits.rules
+      rules:
+        # Only containers with a memory limit have a series on the right side.
+        - alert: ContainerNearMemoryLimit
+          expr: |
+            max by (namespace, pod, container) (container_memory_working_set_bytes{job="kubelet", metrics_path="/metrics/cadvisor", container!=""})
+              / on (namespace, pod, container)
+            max by (namespace, pod, container) (kube_pod_container_resource_limits{job="kube-state-metrics", resource="memory"})
+            > 0.9
+          for: 10m
+          labels:
+            severity: warning
+          annotations:
+            summary: "{{ $labels.namespace }}/{{ $labels.container }} is at {{ $value | humanizePercentage }} of its memory limit"
+            description: >-
+              A container held at its memory limit spends its time reclaiming memory and can stop
+              responding without restarting. Raise the limit in its manifest or find what grew.
+
+        # The same expression as the kube-prometheus CPUThrottlingHigh rule,
+        # which the stack sends at info severity and Alertmanager discards.
+        - alert: ContainerCPUThrottled
+          expr: |
+            sum without (id, metrics_path, name, image, endpoint, job, node) (
+              topk by (namespace, pod, container, instance) (1,
+                increase(container_cpu_cfs_throttled_periods_total{container!="", job="kubelet", metrics_path="/metrics/cadvisor"}[5m])
+              )
+            )
+              / on (namespace, pod, container, instance) group_left
+            sum without (id, metrics_path, name, image, endpoint, job, node) (
+              topk by (namespace, pod, container, instance) (1,
+                increase(container_cpu_cfs_periods_total{job="kubelet", metrics_path="/metrics/cadvisor"}[5m])
+              )
+            )
+            > 0.25
+          for: 15m
+          labels:
+            severity: warning
+          annotations:
+            summary: "{{ $labels.namespace }}/{{ $labels.container }} is CPU throttled {{ $value | humanizePercentage }} of the time"
+            description: >-
+              The container keeps hitting its CPU limit. Raise the limit in its manifest or find
+              what is using the CPU.
+
+        # Talos nodes only. A container without a CPU limit that spins shows up here.
+        - alert: TalosNodeCPUHigh
+          expr: |
+            100 * sum without (mode) (avg without (cpu) (rate(node_cpu_seconds_total{job="node-exporter", mode!~"idle|iowait"}[2m]))) > 90
+          for: 15m
+          labels:
+            severity: warning
+          annotations:
+            summary: "{{ $labels.instance }} CPU is at {{ printf \"%.0f\" $value }}%"
+            description: >-
+              Find the busiest containers with
+              topk(5, sum by (namespace, pod, container) (rate(container_cpu_usage_seconds_total{container!=""}[5m]))).
