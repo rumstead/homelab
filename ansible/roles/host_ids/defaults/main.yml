@@ -8,7 +8,10 @@ host_ids_work_dir: /var/lib/host-ids
 host_ids_baseline_dir: /var/lib/egress-baseline
 
 # Capture threads on the uplink; each costs memory for its own rule contexts.
-host_ids_capture_threads: 2
+host_ids_capture_threads: 4
+# Per capture thread. A daily Trivy database download sends about 150,000
+# packets in 30 seconds.
+host_ids_capture_ring_size: 16384
 host_ids_home_net:
   - 192.168.0.0/16
   - 10.0.0.0/8
