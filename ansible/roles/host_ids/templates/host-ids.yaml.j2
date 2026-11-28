@@ -75,6 +75,9 @@ af-packet:
     use-mmap: yes
     tpacket-v3: yes
     threads: {{ host_ids_capture_threads }}
+    # Frames each capture thread can queue, so a burst such as a large download
+    # waits in the ring instead of being dropped.
+    ring-size: {{ host_ids_capture_ring_size }}
     # Suricata's default disable-offloading turns off tx/rx checksum offload on
     # the NIC, so every frame carries a real checksum; not verifying them keeps
     # the capture cheap.
@@ -104,6 +107,10 @@ app-layer:
       enabled: yes
       detection-ports:
         dp: 443
+      # Stop inspecting a TLS flow once the handshake is done. Server name,
+      # certificate and JA3/JA4 are all in the handshake; the encrypted rest of
+      # a download only costs capture time.
+      encryption-handling: bypass
     dcerpc:
       enabled: yes
     ftp:
