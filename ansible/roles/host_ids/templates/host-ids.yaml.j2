@@ -51,8 +51,10 @@ outputs:
             metadata: yes
         - dns:
             version: 2
+        # Suricata 8 writes an empty tls object unless extended is on; it adds
+        # the server name, version, certificate and JA3/JA4.
         - tls:
-            extended: no
+            extended: yes
         - quic
         - stats:
             totals: yes
